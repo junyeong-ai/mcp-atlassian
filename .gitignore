@@ -1,0 +1,45 @@
+# Rust
+/target
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+tarpaulin-report.html
+cobertura.xml
+coverage/
+
+# Benchmarks
+criterion/
+
+# Temporary files
+tmp/
+temp/
+baseline-*.txt
+after-*.txt
+final-*.txt
+
+# Development tools
+.claude/
+.specify/
+.serena/

@@ -86,12 +86,12 @@ impl RequestHandler {
             // Jira tools
             "jira_get_issue" => {
                 let mut props = HashMap::new();
-                props.insert("issue_key".to_string(), Self::create_string_prop("Issue key", true));
+                props.insert("issue_key".to_string(), Self::create_string_prop("Issue key (e.g., 'PROJECT-123'). Case-sensitive.", true));
                 ("Get Jira issue by key", props, vec!["issue_key".to_string()])
             }
             "jira_search" => {
                 let mut props = HashMap::new();
-                props.insert("jql".to_string(), Self::create_string_prop("JQL query", true));
+                props.insert("jql".to_string(), Self::create_string_prop("JQL query. Must include search condition before ORDER BY (e.g., 'project = KEY ORDER BY created DESC'). ORDER BY only works with orderable fields (dates, versions).", true));
                 props.insert("limit".to_string(), Self::create_number_prop("Max results", 10));
                 ("Search Jira issues using JQL", props, vec!["jql".to_string()])
             }
@@ -99,7 +99,7 @@ impl RequestHandler {
                 let mut props = HashMap::new();
                 props.insert("project_key".to_string(), Self::create_string_prop("Project key", true));
                 props.insert("summary".to_string(), Self::create_string_prop("Issue summary", true));
-                props.insert("issue_type".to_string(), Self::create_string_prop("Issue type", true));
+                props.insert("issue_type".to_string(), Self::create_string_prop("Issue type name (e.g., 'Task', 'Bug', 'Story').", true));
                 props.insert("description".to_string(), Self::create_string_prop("Issue description", false));
                 ("Create Jira issue", props, vec!["project_key".to_string(), "summary".to_string(), "issue_type".to_string()])
             }
@@ -108,7 +108,7 @@ impl RequestHandler {
                 props.insert("issue_key".to_string(), Self::create_string_prop("Issue key", true));
                 props.insert("fields".to_string(), Property {
                     property_type: "object".to_string(),
-                    description: Some("Fields to update".to_string()),
+                    description: Some("Fields to update as JSON object (e.g., {\"summary\": \"New title\"}). Custom fields use 'customfield_*' format.".to_string()),
                     default: None,
                     enum_values: None,
                 });
@@ -117,13 +117,13 @@ impl RequestHandler {
             "jira_add_comment" => {
                 let mut props = HashMap::new();
                 props.insert("issue_key".to_string(), Self::create_string_prop("Issue key", true));
-                props.insert("comment".to_string(), Self::create_string_prop("Comment text", true));
+                props.insert("comment".to_string(), Self::create_string_prop("Comment text (plain text). Automatically converted to Atlassian Document Format.", true));
                 ("Add comment to Jira issue", props, vec!["issue_key".to_string(), "comment".to_string()])
             }
             "jira_transition_issue" => {
                 let mut props = HashMap::new();
                 props.insert("issue_key".to_string(), Self::create_string_prop("Issue key", true));
-                props.insert("transition_id".to_string(), Self::create_string_prop("Transition ID", true));
+                props.insert("transition_id".to_string(), Self::create_string_prop("Transition ID. Get available transition IDs using jira_get_transitions for the issue's current status.", true));
                 ("Transition Jira issue status", props, vec!["issue_key".to_string(), "transition_id".to_string()])
             }
             "jira_get_transitions" => {
@@ -134,7 +134,7 @@ impl RequestHandler {
             // Confluence tools
             "confluence_search" => {
                 let mut props = HashMap::new();
-                props.insert("query".to_string(), Self::create_string_prop("CQL query", true));
+                props.insert("query".to_string(), Self::create_string_prop("CQL query. Format: field operator value (e.g., 'type=page AND space=\"SPACE\"'). Use text ~ \"keyword\" for text search.", true));
                 props.insert("limit".to_string(), Self::create_number_prop("Max results", 10));
                 ("Search Confluence using CQL", props, vec!["query".to_string()])
             }
@@ -157,7 +157,7 @@ impl RequestHandler {
                 let mut props = HashMap::new();
                 props.insert("space_key".to_string(), Self::create_string_prop("Space key", true));
                 props.insert("title".to_string(), Self::create_string_prop("Page title", true));
-                props.insert("content".to_string(), Self::create_string_prop("Page content", true));
+                props.insert("content".to_string(), Self::create_string_prop("Page content in HTML storage format.", true));
                 props.insert("parent_id".to_string(), Self::create_string_prop("Parent page ID", false));
                 ("Create Confluence page", props, vec!["space_key".to_string(), "title".to_string(), "content".to_string()])
             }
@@ -166,7 +166,7 @@ impl RequestHandler {
                 props.insert("page_id".to_string(), Self::create_string_prop("Page ID", true));
                 props.insert("title".to_string(), Self::create_string_prop("Page title", true));
                 props.insert("content".to_string(), Self::create_string_prop("Page content", true));
-                props.insert("version_number".to_string(), Self::create_number_prop("Version number", 1));
+                props.insert("version_number".to_string(), Self::create_number_prop("Version number (optional). Current version is automatically retrieved and incremented.", 1));
                 ("Update Confluence page", props, vec!["page_id".to_string(), "title".to_string(), "content".to_string()])
             }
             _ => ("Unknown tool", HashMap::new(), vec![]),

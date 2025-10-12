@@ -11,10 +11,11 @@ use super::types::{Tool as McpTool, ToolInputSchema, Property, CallToolResult, T
 
 pub struct RequestHandler {
     tools: HashMap<String, Arc<dyn ToolHandler>>,
+    config: Arc<Config>,
 }
 
 impl RequestHandler {
-    pub async fn new(_config: Arc<Config>) -> Result<Self> {
+    pub async fn new(config: Arc<Config>) -> Result<Self> {
         let mut tools: HashMap<String, Arc<dyn ToolHandler>> = HashMap::new();
 
         // Register Jira tools
@@ -34,14 +35,14 @@ impl RequestHandler {
         tools.insert("confluence_create_page".to_string(), Arc::new(confluence::CreatePageHandler));
         tools.insert("confluence_update_page".to_string(), Arc::new(confluence::UpdatePageHandler));
 
-        Ok(Self { tools })
+        Ok(Self { tools, config })
     }
 
     pub async fn list_tools(&self) -> Vec<McpTool> {
         let mut tool_list = Vec::new();
 
         for name in self.tools.keys() {
-            tool_list.push(self.tool_to_mcp_tool(name));
+            tool_list.push(self.tool_to_mcp_tool(name, &self.config));
         }
 
         tool_list
@@ -81,7 +82,7 @@ impl RequestHandler {
         }
     }
 
-    fn tool_to_mcp_tool(&self, name: &str) -> McpTool {
+    fn tool_to_mcp_tool(&self, name: &str, config: &Config) -> McpTool {
         let (description, properties, required) = match name {
             // Jira tools
             "jira_get_issue" => {
@@ -90,18 +91,21 @@ impl RequestHandler {
                 ("Get Jira issue by key", props, vec!["issue_key".to_string()])
             }
             "jira_search" => {
+                // Resolve the actual fields that will be used
+                let resolved_fields = jira::field_filtering::resolve_search_fields(None, config);
+                let fields_count = resolved_fields.len();
+                let fields_list = resolved_fields.join(", ");
+
                 let mut props = HashMap::new();
                 props.insert("jql".to_string(), Self::create_string_prop("JQL query. Must include search condition before ORDER BY (e.g., 'project = KEY ORDER BY created DESC'). ORDER BY only works with orderable fields (dates, versions).", true));
                 props.insert("limit".to_string(), Self::create_number_prop("Maximum results (default: 20)", 20));
                 props.insert("fields".to_string(), Property {
                     property_type: "array".to_string(),
-                    description: Some(
-                        "Optional: Array of field names to return. If not specified, returns 17 optimized default fields. \
-                        To minimize tokens, specify only needed fields (e.g., [\"key\",\"summary\",\"status\",\"assignee\"]). \
-                        \n\nDefault fields (17): key, summary, status, priority, issuetype, assignee, reporter, creator, \
-                        created, updated, duedate, resolutiondate, project, labels, components, parent, subtasks. \
-                        \n\nCustom fields: Add via array (e.g., [\"customfield_10015\"]) or set JIRA_SEARCH_CUSTOM_FIELDS env var.".to_string()
-                    ),
+                    description: Some(format!(
+                        "Optional: Array of field names to return. If not specified, returns {} default fields: {}\n\n\
+                        To minimize tokens, specify only the fields you need (e.g., [\"key\",\"summary\",\"status\",\"assignee\"]).",
+                        fields_count, fields_list
+                    )),
                     default: None,
                     enum_values: None,
                 });

@@ -482,14 +482,15 @@ mod tests {
         let jira_search = tools.iter().find(|t| t.name == "jira_search").unwrap();
 
         // Verify jql is required
-        assert!(jira_search.input_schema.required.contains(&"jql".to_string()));
+        assert!(
+            jira_search
+                .input_schema
+                .required
+                .contains(&"jql".to_string())
+        );
 
         // Verify fields parameter has description about default fields
-        let fields_prop = jira_search
-            .input_schema
-            .properties
-            .get("fields")
-            .unwrap();
+        let fields_prop = jira_search.input_schema.properties.get("fields").unwrap();
         assert!(fields_prop.description.is_some());
         let desc = fields_prop.description.as_ref().unwrap();
         assert!(desc.contains("17 default fields")); // Based on DEFAULT_SEARCH_FIELDS count
@@ -504,7 +505,11 @@ mod tests {
         let tool = tools.iter().find(|t| t.name == "jira_get_issue").unwrap();
 
         assert_eq!(tool.description, "Get Jira issue by key");
-        assert!(tool.input_schema.required.contains(&"issue_key".to_string()));
+        assert!(
+            tool.input_schema
+                .required
+                .contains(&"issue_key".to_string())
+        );
         assert!(tool.input_schema.properties.contains_key("issue_key"));
     }
 
@@ -520,10 +525,19 @@ mod tests {
             .unwrap();
 
         assert_eq!(tool.description, "Create Confluence page");
-        assert!(tool.input_schema.required.contains(&"space_key".to_string()));
+        assert!(
+            tool.input_schema
+                .required
+                .contains(&"space_key".to_string())
+        );
         assert!(tool.input_schema.required.contains(&"title".to_string()));
         assert!(tool.input_schema.required.contains(&"content".to_string()));
-        assert!(!tool.input_schema.required.contains(&"parent_id".to_string())); // Optional
+        assert!(
+            !tool
+                .input_schema
+                .required
+                .contains(&"parent_id".to_string())
+        ); // Optional
     }
 
     #[tokio::test]

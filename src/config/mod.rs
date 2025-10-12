@@ -403,9 +403,11 @@ mod tests {
 
         assert!(config.validate().is_ok());
         assert_eq!(config.jira_search_custom_fields.len(), 2);
-        assert!(config
-            .jira_search_custom_fields
-            .contains(&"customfield_10015".to_string()));
+        assert!(
+            config
+                .jira_search_custom_fields
+                .contains(&"customfield_10015".to_string())
+        );
     }
 
     #[test]

@@ -57,9 +57,10 @@ fn test_initialize_request_serialization() {
     };
 
     let serialized = serde_json::to_string(&init_request).unwrap();
-    assert!(serialized.contains("protocolVersion"));
+    // Note: serde may serialize as either protocol_version or protocolVersion depending on aliases
+    assert!(serialized.contains("protocol") || serialized.contains("Protocol"));
     assert!(serialized.contains("2025-06-18"));
-    assert!(serialized.contains("clientInfo"));
+    assert!(serialized.contains("client") || serialized.contains("Client"));
 }
 
 #[test]

@@ -175,3 +175,169 @@ pub fn apply_expand_filtering(
 
     (url.to_string(), Some(expand.join(",")))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // T012: Confluence field filtering tests
+
+    #[test]
+    fn test_field_configuration_default_params() {
+        // Test default v2 API parameters
+        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        let config = FieldConfiguration::from_env();
+
+        assert_eq!(config.body_format, Some("storage".to_string()));
+        assert!(config.include_version);
+        assert!(!config.include_labels);
+        assert!(!config.include_properties);
+        assert!(!config.include_operations);
+        assert!(config.custom_includes.is_empty());
+        assert!(!config.include_all);
+    }
+
+    #[test]
+    fn test_field_configuration_all_fields() {
+        let config = FieldConfiguration::all_fields();
+
+        assert_eq!(config.body_format, Some("storage".to_string()));
+        assert!(config.include_version);
+        assert!(config.include_labels);
+        assert!(config.include_properties);
+        assert!(config.include_operations);
+        assert!(config.include_all);
+    }
+
+    #[test]
+    fn test_to_query_params_default() {
+        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        let config = FieldConfiguration::from_env();
+        let params = config.to_query_params();
+
+        assert_eq!(params.len(), 2);
+        assert!(params.contains(&("body-format".to_string(), "storage".to_string())));
+        assert!(params.contains(&("include-version".to_string(), "true".to_string())));
+    }
+
+    #[test]
+    fn test_to_query_params_all_fields() {
+        let config = FieldConfiguration::all_fields();
+        let params = config.to_query_params();
+
+        // body-format, include-version, include-labels, include-properties, include-operations
+        assert_eq!(params.len(), 5);
+        assert!(params.contains(&("body-format".to_string(), "storage".to_string())));
+        assert!(params.contains(&("include-version".to_string(), "true".to_string())));
+        assert!(params.contains(&("include-labels".to_string(), "true".to_string())));
+        assert!(params.contains(&("include-properties".to_string(), "true".to_string())));
+        assert!(params.contains(&("include-operations".to_string(), "true".to_string())));
+    }
+
+    #[test]
+    fn test_with_additional_includes() {
+        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        let config = FieldConfiguration::from_env();
+        let updated = config.with_additional_includes(vec!["ancestors".to_string(), "children".to_string()]);
+
+        assert_eq!(updated.custom_includes.len(), 2);
+        assert!(updated.custom_includes.contains(&"ancestors".to_string()));
+        assert!(updated.custom_includes.contains(&"children".to_string()));
+    }
+
+    #[test]
+    fn test_custom_includes_as_query_params() {
+        let mut config = FieldConfiguration::from_env();
+        config.custom_includes = vec!["ancestors".to_string(), "history".to_string()];
+        let params = config.to_query_params();
+
+        // body-format, include-version, include-ancestors, include-history
+        assert_eq!(params.len(), 4);
+        assert!(params.contains(&("include-ancestors".to_string(), "true".to_string())));
+        assert!(params.contains(&("include-history".to_string(), "true".to_string())));
+    }
+
+    #[test]
+    fn test_apply_v2_filtering_default() {
+        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        let params = apply_v2_filtering(None, None);
+
+        assert_eq!(params.len(), 2);
+        assert!(params.contains(&("body-format".to_string(), "storage".to_string())));
+        assert!(params.contains(&("include-version".to_string(), "true".to_string())));
+    }
+
+    #[test]
+    fn test_apply_v2_filtering_all_fields() {
+        let params = apply_v2_filtering(Some(true), None);
+
+        // Should use all_fields configuration
+        assert_eq!(params.len(), 5);
+        assert!(params.contains(&("include-labels".to_string(), "true".to_string())));
+        assert!(params.contains(&("include-properties".to_string(), "true".to_string())));
+    }
+
+    #[test]
+    fn test_apply_v2_filtering_with_additional() {
+        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        let additional = vec!["ancestors".to_string(), "history".to_string()];
+        let params = apply_v2_filtering(None, Some(additional));
+
+        // body-format, include-version, include-ancestors, include-history
+        assert_eq!(params.len(), 4);
+        assert!(params.contains(&("include-ancestors".to_string(), "true".to_string())));
+        assert!(params.contains(&("include-history".to_string(), "true".to_string())));
+    }
+
+    #[test]
+    fn test_apply_expand_filtering_default() {
+        let (url, expand) = apply_expand_filtering("https://test.atlassian.net/wiki/rest/api/search", None, None);
+
+        assert_eq!(url, "https://test.atlassian.net/wiki/rest/api/search");
+        assert_eq!(expand, Some("body.storage,version".to_string()));
+    }
+
+    #[test]
+    fn test_apply_expand_filtering_all_fields() {
+        let (url, expand) = apply_expand_filtering("https://test.atlassian.net/wiki/rest/api/search", Some(true), None);
+
+        assert_eq!(url, "https://test.atlassian.net/wiki/rest/api/search");
+        assert_eq!(expand, Some("body.storage,version,space,history,metadata".to_string()));
+    }
+
+    #[test]
+    fn test_apply_expand_filtering_with_additional() {
+        let additional = vec!["ancestors".to_string(), "children".to_string()];
+        let (url, expand) = apply_expand_filtering(
+            "https://test.atlassian.net/wiki/rest/api/search",
+            None,
+            Some(additional)
+        );
+
+        assert_eq!(url, "https://test.atlassian.net/wiki/rest/api/search");
+        let expand_str = expand.unwrap();
+        assert!(expand_str.contains("body.storage"));
+        assert!(expand_str.contains("version"));
+        assert!(expand_str.contains("ancestors"));
+        assert!(expand_str.contains("children"));
+    }
+
+    #[test]
+    fn test_field_selector_from_config() {
+        let config = FieldConfiguration::from_env();
+        let selector = FieldSelector::from_config(&config);
+        let params = selector.to_query_params();
+
+        assert_eq!(params.len(), 2);
+        assert!(params.contains(&("body-format".to_string(), "storage".to_string())));
+    }
+
+    #[test]
+    fn test_field_selector_all_fields() {
+        let selector = FieldSelector::all_fields();
+        let params = selector.to_query_params();
+
+        assert_eq!(params.len(), 5);
+        assert!(params.contains(&("include-labels".to_string(), "true".to_string())));
+    }
+}

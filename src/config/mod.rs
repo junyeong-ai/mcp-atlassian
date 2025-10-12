@@ -146,6 +146,7 @@ impl Config {
 mod tests {
     use super::*;
 
+    // T009: Valid configuration tests
     #[test]
     fn test_config_validation() {
         let config = Config {
@@ -164,6 +165,45 @@ mod tests {
     }
 
     #[test]
+    fn test_domain_normalization_adds_https() {
+        let config = Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "token".to_string(),
+            max_connections: 10,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        };
+
+        let url = config.get_atlassian_base_url();
+        assert!(url.starts_with("https://"));
+        assert_eq!(url, "https://test.atlassian.net");
+    }
+
+    #[test]
+    fn test_domain_normalization_converts_http_to_https() {
+        let config = Config {
+            atlassian_domain: "http://test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "token".to_string(),
+            max_connections: 10,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        };
+
+        let url = config.get_atlassian_base_url();
+        assert!(url.starts_with("https://"));
+        assert!(!url.contains("http://"));
+    }
+
+    // T010: Invalid configuration tests
+    #[test]
     fn test_invalid_domain() {
         let config = Config {
             atlassian_domain: "invalid-domain".to_string(),
@@ -171,6 +211,74 @@ mod tests {
             atlassian_api_token: "token123".to_string(),
             max_connections: 100,
             request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        };
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_email_missing_at_symbol() {
+        let config = Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "invalid-email".to_string(),
+            atlassian_api_token: "token".to_string(),
+            max_connections: 10,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        };
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_empty_api_token_fails() {
+        let config = Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "".to_string(),
+            max_connections: 10,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        };
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_max_connections_zero() {
+        let config = Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "token".to_string(),
+            max_connections: 0,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        };
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_timeout_too_low() {
+        let config = Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "token".to_string(),
+            max_connections: 10,
+            request_timeout_ms: 50,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,

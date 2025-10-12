@@ -142,10 +142,7 @@ pub enum ToolContent {
     #[serde(rename = "text")]
     Text { text: String },
     #[serde(rename = "image")]
-    Image {
-        data: String,
-        mime_type: String,
-    },
+    Image { data: String, mime_type: String },
 }
 
 /// MCP Error Codes
@@ -452,11 +449,7 @@ mod tests {
             property_type: "string".to_string(),
             description: Some("Status field".to_string()),
             default: None,
-            enum_values: Some(vec![
-                json!("Open"),
-                json!("In Progress"),
-                json!("Closed"),
-            ]),
+            enum_values: Some(vec![json!("Open"), json!("In Progress"), json!("Closed")]),
         };
 
         assert_eq!(property.property_type, "string");

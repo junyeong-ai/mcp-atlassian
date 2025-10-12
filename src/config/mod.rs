@@ -33,9 +33,8 @@ impl Config {
         tracing::debug!("Loaded ATLASSIAN_DOMAIN: {}", domain);
 
         // Parse Jira search field configuration
-        let jira_search_default_fields: Option<Vec<String>> = env::var("JIRA_SEARCH_DEFAULT_FIELDS")
-            .ok()
-            .map(|s| {
+        let jira_search_default_fields: Option<Vec<String>> =
+            env::var("JIRA_SEARCH_DEFAULT_FIELDS").ok().map(|s| {
                 s.split(',')
                     .filter(|s| !s.trim().is_empty())
                     .map(|s| s.trim().to_string())
@@ -50,11 +49,17 @@ impl Config {
             .collect();
 
         if let Some(ref fields) = jira_search_default_fields {
-            tracing::info!("Using custom default fields from JIRA_SEARCH_DEFAULT_FIELDS: {} fields", fields.len());
+            tracing::info!(
+                "Using custom default fields from JIRA_SEARCH_DEFAULT_FIELDS: {} fields",
+                fields.len()
+            );
         }
 
         if !jira_search_custom_fields.is_empty() {
-            tracing::info!("Adding {} custom fields from JIRA_SEARCH_CUSTOM_FIELDS", jira_search_custom_fields.len());
+            tracing::info!(
+                "Adding {} custom fields from JIRA_SEARCH_CUSTOM_FIELDS",
+                jira_search_custom_fields.len()
+            );
         }
 
         Ok(Self {
@@ -139,7 +144,6 @@ impl Config {
             format!("https://{}", self.atlassian_domain)
         }
     }
-
 }
 
 #[cfg(test)]

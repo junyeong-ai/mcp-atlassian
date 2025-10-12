@@ -2,8 +2,8 @@
 // Tests the MCP protocol initialization flow
 
 use mcp_atlassian::mcp::types::{
-    ClientCapabilities, ClientInfo, InitializeRequest, JsonRpcRequest,
-    PROTOCOL_VERSION, PROTOCOL_VERSION_2025,
+    ClientCapabilities, ClientInfo, InitializeRequest, JsonRpcRequest, PROTOCOL_VERSION,
+    PROTOCOL_VERSION_2025,
 };
 use serde_json::json;
 use std::collections::HashMap;

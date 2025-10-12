@@ -1,18 +1,17 @@
+use std::env;
 use tracing::info;
 use tracing_subscriber::{
+    EnvFilter,
     fmt::{self, format::FmtSpan},
     layer::SubscriberExt,
     util::SubscriberInitExt,
-    EnvFilter,
 };
-use std::env;
 
 pub fn init_logging() {
-    let log_level = env::var("LOG_LEVEL")
-        .unwrap_or_else(|_| "warn".to_string());
+    let log_level = env::var("LOG_LEVEL").unwrap_or_else(|_| "warn".to_string());
 
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(log_level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
 
     // IMPORTANT: Always write logs to stderr, never stdout!
     // stdout is reserved for MCP protocol messages only
@@ -117,30 +116,36 @@ mod tests {
     #[test]
     fn test_log_level_default() {
         // Clear environment variable
-        unsafe { std::env::remove_var("LOG_LEVEL"); }
+        unsafe {
+            std::env::remove_var("LOG_LEVEL");
+        }
 
-        let log_level = std::env::var("LOG_LEVEL")
-            .unwrap_or_else(|_| "warn".to_string());
+        let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "warn".to_string());
 
         assert_eq!(log_level, "warn");
     }
 
     #[test]
     fn test_log_level_custom() {
-        unsafe { std::env::set_var("LOG_LEVEL", "debug"); }
+        unsafe {
+            std::env::set_var("LOG_LEVEL", "debug");
+        }
 
-        let log_level = std::env::var("LOG_LEVEL")
-            .unwrap_or_else(|_| "warn".to_string());
+        let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "warn".to_string());
 
         assert_eq!(log_level, "debug");
 
         // Cleanup
-        unsafe { std::env::remove_var("LOG_LEVEL"); }
+        unsafe {
+            std::env::remove_var("LOG_LEVEL");
+        }
     }
 
     #[test]
     fn test_json_logs_default() {
-        unsafe { std::env::remove_var("JSON_LOGS"); }
+        unsafe {
+            std::env::remove_var("JSON_LOGS");
+        }
 
         let json_logs = std::env::var("JSON_LOGS")
             .unwrap_or_else(|_| "false".to_string())
@@ -152,7 +157,9 @@ mod tests {
 
     #[test]
     fn test_json_logs_enabled() {
-        unsafe { std::env::set_var("JSON_LOGS", "true"); }
+        unsafe {
+            std::env::set_var("JSON_LOGS", "true");
+        }
 
         let json_logs = std::env::var("JSON_LOGS")
             .unwrap_or_else(|_| "false".to_string())
@@ -162,7 +169,9 @@ mod tests {
         assert!(json_logs);
 
         // Cleanup
-        unsafe { std::env::remove_var("JSON_LOGS"); }
+        unsafe {
+            std::env::remove_var("JSON_LOGS");
+        }
     }
 
     #[test]

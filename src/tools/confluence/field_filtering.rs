@@ -1,4 +1,3 @@
-
 /// Configuration for Confluence API v2 parameters
 #[derive(Debug, Clone)]
 pub struct FieldConfiguration {
@@ -26,7 +25,11 @@ impl FieldConfiguration {
         };
 
         if !custom_includes.is_empty() {
-            tracing::info!("Loaded {} custom include parameters: {:?}", custom_includes.len(), custom_includes);
+            tracing::info!(
+                "Loaded {} custom include parameters: {:?}",
+                custom_includes.len(),
+                custom_includes
+            );
         }
 
         Self {
@@ -135,7 +138,10 @@ pub fn apply_v2_filtering(
     }
 
     let mut config = FieldConfiguration::from_env();
-    tracing::debug!("Loaded {} custom include parameters from environment", config.custom_includes.len());
+    tracing::debug!(
+        "Loaded {} custom include parameters from environment",
+        config.custom_includes.len()
+    );
 
     if let Some(additional) = additional_includes {
         tracing::debug!("Adding {} additional include parameters", additional.len());
@@ -163,7 +169,10 @@ pub fn apply_expand_filtering(
         vec!["body.storage", "version"]
     };
 
-    let mut expand = expand_params.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let mut expand = expand_params
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
 
     if let Some(additional) = additional_expand {
         for param in additional {
@@ -185,7 +194,9 @@ mod tests {
     #[test]
     fn test_field_configuration_default_params() {
         // Test default v2 API parameters
-        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        unsafe {
+            std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES");
+        }
         let config = FieldConfiguration::from_env();
 
         assert_eq!(config.body_format, Some("storage".to_string()));
@@ -211,7 +222,9 @@ mod tests {
 
     #[test]
     fn test_to_query_params_default() {
-        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        unsafe {
+            std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES");
+        }
         let config = FieldConfiguration::from_env();
         let params = config.to_query_params();
 
@@ -236,9 +249,12 @@ mod tests {
 
     #[test]
     fn test_with_additional_includes() {
-        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        unsafe {
+            std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES");
+        }
         let config = FieldConfiguration::from_env();
-        let updated = config.with_additional_includes(vec!["ancestors".to_string(), "children".to_string()]);
+        let updated =
+            config.with_additional_includes(vec!["ancestors".to_string(), "children".to_string()]);
 
         assert_eq!(updated.custom_includes.len(), 2);
         assert!(updated.custom_includes.contains(&"ancestors".to_string()));
@@ -259,7 +275,9 @@ mod tests {
 
     #[test]
     fn test_apply_v2_filtering_default() {
-        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        unsafe {
+            std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES");
+        }
         let params = apply_v2_filtering(None, None);
 
         assert_eq!(params.len(), 2);
@@ -279,7 +297,9 @@ mod tests {
 
     #[test]
     fn test_apply_v2_filtering_with_additional() {
-        unsafe { std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES"); }
+        unsafe {
+            std::env::remove_var("CONFLUENCE_CUSTOM_INCLUDES");
+        }
         let additional = vec!["ancestors".to_string(), "history".to_string()];
         let params = apply_v2_filtering(None, Some(additional));
 
@@ -291,7 +311,11 @@ mod tests {
 
     #[test]
     fn test_apply_expand_filtering_default() {
-        let (url, expand) = apply_expand_filtering("https://test.atlassian.net/wiki/rest/api/search", None, None);
+        let (url, expand) = apply_expand_filtering(
+            "https://test.atlassian.net/wiki/rest/api/search",
+            None,
+            None,
+        );
 
         assert_eq!(url, "https://test.atlassian.net/wiki/rest/api/search");
         assert_eq!(expand, Some("body.storage,version".to_string()));
@@ -299,10 +323,17 @@ mod tests {
 
     #[test]
     fn test_apply_expand_filtering_all_fields() {
-        let (url, expand) = apply_expand_filtering("https://test.atlassian.net/wiki/rest/api/search", Some(true), None);
+        let (url, expand) = apply_expand_filtering(
+            "https://test.atlassian.net/wiki/rest/api/search",
+            Some(true),
+            None,
+        );
 
         assert_eq!(url, "https://test.atlassian.net/wiki/rest/api/search");
-        assert_eq!(expand, Some("body.storage,version,space,history,metadata".to_string()));
+        assert_eq!(
+            expand,
+            Some("body.storage,version,space,history,metadata".to_string())
+        );
     }
 
     #[test]
@@ -311,7 +342,7 @@ mod tests {
         let (url, expand) = apply_expand_filtering(
             "https://test.atlassian.net/wiki/rest/api/search",
             None,
-            Some(additional)
+            Some(additional),
         );
 
         assert_eq!(url, "https://test.atlassian.net/wiki/rest/api/search");

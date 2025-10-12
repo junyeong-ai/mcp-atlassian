@@ -1,9 +1,7 @@
 // T023: MCP Protocol Tools Call Tests
 // Tests the tools/call endpoint functionality
 
-use mcp_atlassian::mcp::types::{
-    CallToolRequest, CallToolResult, JsonRpcRequest, ToolContent,
-};
+use mcp_atlassian::mcp::types::{CallToolRequest, CallToolResult, JsonRpcRequest, ToolContent};
 use serde_json::json;
 
 #[test]

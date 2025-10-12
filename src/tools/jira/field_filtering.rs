@@ -3,29 +3,24 @@
 pub const DEFAULT_SEARCH_FIELDS: &[&str] = &[
     // Identification
     "key",
-
     // Core Metadata
     "summary",
     "status",
     "priority",
     "issuetype",
-
     // People
     "assignee",
     "reporter",
     "creator",
-
     // Dates
     "created",
     "updated",
     "duedate",
     "resolutiondate",
-
     // Classification
     "project",
     "labels",
     "components",
-
     // Hierarchy
     "parent",
     "subtasks",
@@ -50,7 +45,10 @@ pub fn resolve_search_fields(
 
     // Priority 2: Environment variable completely replaces defaults
     if let Some(ref env_defaults) = config.jira_search_default_fields {
-        tracing::debug!("Using {} fields from JIRA_SEARCH_DEFAULT_FIELDS env var", env_defaults.len());
+        tracing::debug!(
+            "Using {} fields from JIRA_SEARCH_DEFAULT_FIELDS env var",
+            env_defaults.len()
+        );
         return env_defaults.clone();
     }
 
@@ -127,7 +125,11 @@ mod tests {
     #[test]
     fn test_resolve_priority_2_env_override() {
         let config = create_test_config(
-            Some(vec!["key".to_string(), "summary".to_string(), "status".to_string()]),
+            Some(vec![
+                "key".to_string(),
+                "summary".to_string(),
+                "status".to_string(),
+            ]),
             vec!["customfield_10015".to_string()],
         );
 
@@ -142,7 +144,10 @@ mod tests {
     fn test_resolve_priority_3_defaults_with_custom() {
         let config = create_test_config(
             None,
-            vec!["customfield_10015".to_string(), "customfield_10016".to_string()],
+            vec![
+                "customfield_10015".to_string(),
+                "customfield_10016".to_string(),
+            ],
         );
 
         let result = resolve_search_fields(None, &config);
@@ -171,10 +176,7 @@ mod tests {
 
     #[test]
     fn test_resolve_empty_api_fields_fallback() {
-        let config = create_test_config(
-            Some(vec!["key".to_string()]),
-            vec![],
-        );
+        let config = create_test_config(Some(vec!["key".to_string()]), vec![]);
 
         // Empty vec should be treated as "not provided"
         let result = resolve_search_fields(Some(vec![]), &config);

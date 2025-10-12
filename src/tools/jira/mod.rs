@@ -1,9 +1,9 @@
-use anyhow::Result;
-use async_trait::async_trait;
-use serde_json::{json, Value};
 use crate::config::Config;
 use crate::tools::ToolHandler;
 use crate::utils::http_utils::{create_atlassian_client, create_auth_header};
+use anyhow::Result;
+use async_trait::async_trait;
+use serde_json::{Value, json};
 
 pub mod field_filtering;
 
@@ -19,7 +19,8 @@ pub struct GetTransitionsHandler;
 #[async_trait]
 impl ToolHandler for GetIssueHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let issue_key = args["issue_key"].as_str()
+        let issue_key = args["issue_key"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
 
         let client = create_atlassian_client(config);
@@ -53,26 +54,32 @@ impl ToolHandler for GetIssueHandler {
 #[async_trait]
 impl ToolHandler for SearchHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let jql = args["jql"].as_str()
+        let jql = args["jql"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing jql"))?;
         let limit = args["limit"].as_u64().unwrap_or(20);
 
         // Extract fields parameter from API call
-        let api_fields = args["fields"].as_array()
-            .map(|arr| arr.iter()
+        let api_fields = args["fields"].as_array().map(|arr| {
+            arr.iter()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect());
+                .collect()
+        });
 
         // Apply project filter if configured and not already in JQL
         let final_jql = if !config.jira_projects_filter.is_empty() {
             let jql_lower = jql.to_lowercase();
             // Check if JQL already contains project condition
-            if jql_lower.contains("project ") || jql_lower.contains("project=") || jql_lower.contains("project in") {
+            if jql_lower.contains("project ")
+                || jql_lower.contains("project=")
+                || jql_lower.contains("project in")
+            {
                 // User explicitly specified project, use their JQL as-is
                 jql.to_string()
             } else {
                 // Add project filter
-                let projects = config.jira_projects_filter
+                let projects = config
+                    .jira_projects_filter
                     .iter()
                     .map(|p| format!("\"{}\"", p))
                     .collect::<Vec<_>>()
@@ -97,7 +104,11 @@ impl ToolHandler for SearchHandler {
             ("expand".to_string(), "-renderedFields".to_string()),
         ];
 
-        tracing::debug!("Jira search with {} fields: {}", fields.len(), fields.join(","));
+        tracing::debug!(
+            "Jira search with {} fields: {}",
+            fields.len(),
+            fields.join(",")
+        );
 
         let response = client
             .get(&url)
@@ -125,10 +136,7 @@ impl ToolHandler for SearchHandler {
 impl ToolHandler for CreateIssueHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
         let client = create_atlassian_client(config);
-        let base_url = format!(
-            "{}/rest/api/3/issue",
-            config.get_atlassian_base_url()
-        );
+        let base_url = format!("{}/rest/api/3/issue", config.get_atlassian_base_url());
 
         let url = field_filtering::apply_field_filtering_to_url(&base_url);
 
@@ -179,7 +187,8 @@ impl ToolHandler for CreateIssueHandler {
 #[async_trait]
 impl ToolHandler for UpdateIssueHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let issue_key = args["issue_key"].as_str()
+        let issue_key = args["issue_key"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
 
         let client = create_atlassian_client(config);
@@ -213,9 +222,11 @@ impl ToolHandler for UpdateIssueHandler {
 #[async_trait]
 impl ToolHandler for AddCommentHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let issue_key = args["issue_key"].as_str()
+        let issue_key = args["issue_key"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
-        let comment = args["comment"].as_str()
+        let comment = args["comment"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing comment"))?;
 
         let client = create_atlassian_client(config);
@@ -264,9 +275,11 @@ impl ToolHandler for AddCommentHandler {
 #[async_trait]
 impl ToolHandler for TransitionIssueHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let issue_key = args["issue_key"].as_str()
+        let issue_key = args["issue_key"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
-        let transition_id = args["transition_id"].as_str()
+        let transition_id = args["transition_id"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing transition_id"))?;
 
         let client = create_atlassian_client(config);
@@ -304,7 +317,8 @@ impl ToolHandler for TransitionIssueHandler {
 #[async_trait]
 impl ToolHandler for GetTransitionsHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let issue_key = args["issue_key"].as_str()
+        let issue_key = args["issue_key"]
+            .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
 
         let client = create_atlassian_client(config);
@@ -412,19 +426,20 @@ mod tests {
     #[test]
     fn test_search_handler_project_filter_injection() {
         // Test that project filter is injected when not present in JQL
-        let config = create_test_config(
-            vec!["PROJ1".to_string(), "PROJ2".to_string()],
-            None
-        );
+        let config = create_test_config(vec!["PROJ1".to_string(), "PROJ2".to_string()], None);
         let jql = "status = Open";
 
         // Simulate the project filter logic
         let final_jql = if !config.jira_projects_filter.is_empty() {
             let jql_lower = jql.to_lowercase();
-            if jql_lower.contains("project ") || jql_lower.contains("project=") || jql_lower.contains("project in") {
+            if jql_lower.contains("project ")
+                || jql_lower.contains("project=")
+                || jql_lower.contains("project in")
+            {
                 jql.to_string()
             } else {
-                let projects = config.jira_projects_filter
+                let projects = config
+                    .jira_projects_filter
                     .iter()
                     .map(|p| format!("\"{}\"", p))
                     .collect::<Vec<_>>()
@@ -435,25 +450,29 @@ mod tests {
             jql.to_string()
         };
 
-        assert_eq!(final_jql, "project IN (\"PROJ1\",\"PROJ2\") AND (status = Open)");
+        assert_eq!(
+            final_jql,
+            "project IN (\"PROJ1\",\"PROJ2\") AND (status = Open)"
+        );
     }
 
     #[test]
     fn test_search_handler_project_filter_not_injected_when_present() {
         // Test that project filter is NOT injected when already in JQL
-        let config = create_test_config(
-            vec!["PROJ1".to_string()],
-            None
-        );
+        let config = create_test_config(vec!["PROJ1".to_string()], None);
         let jql = "project = MYPROJ AND status = Open";
 
         // Simulate the project filter logic
         let final_jql = if !config.jira_projects_filter.is_empty() {
             let jql_lower = jql.to_lowercase();
-            if jql_lower.contains("project ") || jql_lower.contains("project=") || jql_lower.contains("project in") {
+            if jql_lower.contains("project ")
+                || jql_lower.contains("project=")
+                || jql_lower.contains("project in")
+            {
                 jql.to_string()
             } else {
-                let projects = config.jira_projects_filter
+                let projects = config
+                    .jira_projects_filter
                     .iter()
                     .map(|p| format!("\"{}\"", p))
                     .collect::<Vec<_>>()
@@ -476,10 +495,11 @@ mod tests {
             "fields": ["key", "summary", "status"]
         });
 
-        let api_fields = args["fields"].as_array()
-            .map(|arr| arr.iter()
+        let api_fields = args["fields"].as_array().map(|arr| {
+            arr.iter()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect::<Vec<String>>());
+                .collect::<Vec<String>>()
+        });
 
         assert!(api_fields.is_some());
         let fields = api_fields.unwrap();
@@ -495,10 +515,11 @@ mod tests {
             "jql": "status = Open"
         });
 
-        let api_fields = args["fields"].as_array()
-            .map(|arr| arr.iter()
+        let api_fields = args["fields"].as_array().map(|arr| {
+            arr.iter()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect());
+                .collect()
+        });
 
         // When api_fields is None, resolve_search_fields should return defaults
         assert!(api_fields.is_none());
@@ -535,7 +556,12 @@ mod tests {
         let result = runtime.block_on(handler.execute(args, &config));
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Missing issue_key"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Missing issue_key")
+        );
     }
 
     #[test]
@@ -559,7 +585,10 @@ mod tests {
             issue_key
         );
 
-        assert_eq!(base_url, "https://test.atlassian.net/rest/api/3/issue/PROJ-123");
+        assert_eq!(
+            base_url,
+            "https://test.atlassian.net/rest/api/3/issue/PROJ-123"
+        );
     }
 
     // T015: Jira CreateIssueHandler tests
@@ -598,7 +627,10 @@ mod tests {
         assert_eq!(adf_body["type"], "doc");
         assert_eq!(adf_body["version"], 1);
         assert_eq!(adf_body["content"][0]["type"], "paragraph");
-        assert_eq!(adf_body["content"][0]["content"][0]["text"], "Test description");
+        assert_eq!(
+            adf_body["content"][0]["content"][0]["text"],
+            "Test description"
+        );
     }
 
     #[test]
@@ -628,7 +660,12 @@ mod tests {
         let result = runtime.block_on(handler.execute(args, &config));
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Missing issue_key"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Missing issue_key")
+        );
     }
 
     #[test]
@@ -676,7 +713,12 @@ mod tests {
         let result = runtime.block_on(handler.execute(args, &config));
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Missing issue_key"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Missing issue_key")
+        );
     }
 
     #[test]
@@ -715,7 +757,10 @@ mod tests {
         assert_eq!(adf_body["body"]["type"], "doc");
         assert_eq!(adf_body["body"]["version"], 1);
         assert_eq!(adf_body["body"]["content"][0]["type"], "paragraph");
-        assert_eq!(adf_body["body"]["content"][0]["content"][0]["text"], "This is a test comment");
+        assert_eq!(
+            adf_body["body"]["content"][0]["content"][0]["text"],
+            "This is a test comment"
+        );
     }
 
     #[test]
@@ -729,7 +774,10 @@ mod tests {
             issue_key
         );
 
-        assert_eq!(base_url, "https://test.atlassian.net/rest/api/3/issue/PROJ-123/comment");
+        assert_eq!(
+            base_url,
+            "https://test.atlassian.net/rest/api/3/issue/PROJ-123/comment"
+        );
     }
 
     // TransitionIssueHandler tests
@@ -745,7 +793,12 @@ mod tests {
         let result = runtime.block_on(handler.execute(args, &config));
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Missing issue_key"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Missing issue_key")
+        );
     }
 
     #[test]
@@ -760,7 +813,12 @@ mod tests {
         let result = runtime.block_on(handler.execute(args, &config));
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Missing transition_id"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Missing transition_id")
+        );
     }
 
     #[test]
@@ -801,7 +859,12 @@ mod tests {
         let result = runtime.block_on(handler.execute(args, &config));
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Missing issue_key"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Missing issue_key")
+        );
     }
 
     #[test]
@@ -825,7 +888,9 @@ mod tests {
             issue_key
         );
 
-        assert_eq!(base_url, "https://test.atlassian.net/rest/api/3/issue/PROJ-123/transitions");
+        assert_eq!(
+            base_url,
+            "https://test.atlassian.net/rest/api/3/issue/PROJ-123/transitions"
+        );
     }
 }
-

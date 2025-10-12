@@ -194,10 +194,7 @@ impl McpServer {
             Ok(None)
         } else {
             // If it has an ID, it's a request and needs a response
-            Ok(Some(JsonRpcResponse::success(
-                request.id,
-                Value::Null,
-            )))
+            Ok(Some(JsonRpcResponse::success(request.id, Value::Null)))
         }
     }
 
@@ -248,13 +245,15 @@ impl McpServer {
         debug!("Executing tool: {}", params.name);
 
         // Execute tool
-        match self.handler.call_tool(&params.name, params.arguments, &self.config).await {
-            Ok(result) => {
-                Ok(JsonRpcResponse::success(
-                    request.id,
-                    serde_json::to_value(result)?,
-                ))
-            }
+        match self
+            .handler
+            .call_tool(&params.name, params.arguments, &self.config)
+            .await
+        {
+            Ok(result) => Ok(JsonRpcResponse::success(
+                request.id,
+                serde_json::to_value(result)?,
+            )),
             Err(e) => {
                 error!("Tool execution failed: {}", e);
                 Ok(JsonRpcResponse::error(
@@ -273,10 +272,7 @@ impl McpServer {
             "prompts": []
         });
 
-        Ok(JsonRpcResponse::success(
-            request.id,
-            result,
-        ))
+        Ok(JsonRpcResponse::success(request.id, result))
     }
 
     async fn handle_list_resources(&self, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
@@ -287,9 +283,6 @@ impl McpServer {
             "resources": []
         });
 
-        Ok(JsonRpcResponse::success(
-            request.id,
-            result,
-        ))
+        Ok(JsonRpcResponse::success(request.id, result))
     }
 }

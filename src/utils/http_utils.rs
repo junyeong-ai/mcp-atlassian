@@ -10,7 +10,7 @@ pub fn create_atlassian_client(config: &Config) -> Client {
 }
 
 pub fn create_auth_header(config: &Config) -> String {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
     let credentials = format!("{}:{}", config.atlassian_email, config.atlassian_api_token);
     format!("Basic {}", STANDARD.encode(credentials))
 }
@@ -78,7 +78,7 @@ mod tests {
         let auth_header = create_auth_header(&config);
 
         // Decode and verify the credentials
-        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
         let base64_part = &auth_header[6..];
         let decoded = STANDARD.decode(base64_part).unwrap();
         let credentials = String::from_utf8(decoded).unwrap();
@@ -89,18 +89,13 @@ mod tests {
     #[test]
     fn test_create_auth_header_with_special_characters() {
         // Test with special characters in email and token
-        let config = create_test_config(
-            "user+test@example.com",
-            "token!@#$%^&*()",
-            30000,
-            100
-        );
+        let config = create_test_config("user+test@example.com", "token!@#$%^&*()", 30000, 100);
         let auth_header = create_auth_header(&config);
 
         // Should properly encode special characters
         assert!(auth_header.starts_with("Basic "));
 
-        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
         let base64_part = &auth_header[6..];
         let decoded = STANDARD.decode(base64_part).unwrap();
         let credentials = String::from_utf8(decoded).unwrap();

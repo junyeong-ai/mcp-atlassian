@@ -1,100 +1,151 @@
-# MCP Atlassian Server
+# 🔧 MCP Atlassian
 
-> Rust-based MCP server for Jira and Confluence integration
+> AI Agent를 위한 초경량 Atlassian MCP 서버
 
-Model Context Protocol (MCP) server that connects AI assistants to Atlassian Cloud, providing 13 tools for Jira and Confluence operations.
+Claude, ChatGPT 등 AI Agent가 Jira와 Confluence를 직접 제어할 수 있게 해주는 Model Context Protocol 서버.
+Rust 기반 **4.4MB 바이너리**로 **응답 최적화**와 **빠른 실행 속도** 제공.
 
 [![CI](https://github.com/junyeong-ai/mcp-atlassian/workflows/CI/badge.svg)](https://github.com/junyeong-ai/mcp-atlassian/actions)
-[![Lint](https://github.com/junyeong-ai/mcp-atlassian/workflows/Lint/badge.svg)](https://github.com/junyeong-ai/mcp-atlassian/actions)
 [![codecov](https://codecov.io/gh/junyeong-ai/mcp-atlassian/branch/main/graph/badge.svg)](https://codecov.io/gh/junyeong-ai/mcp-atlassian)
-[![Rust](https://img.shields.io/badge/rust-1.90%2B%20(2024%20edition)-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
+[![Tools](https://img.shields.io/badge/MCP%20tools-13-blue?style=flat-square)](#🔧-13개-mcp-도구)
+[![Rust](https://img.shields.io/badge/rust-1.90%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05%20%7C%202025--06--18-blue?style=flat-square)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/junyeong-ai/mcp-atlassian/releases)
-[![Tools](https://img.shields.io/badge/MCP%20tools-13-blue?style=flat-square)](#features)
-[![Tests](https://img.shields.io/badge/tests-135%20passing-success?style=flat-square)](#testing)
+
+**[한국어](README.md)** | [English](README.en.md)
 
 ---
 
-## Features
+## 📖 목차
 
-### Jira Tools (7)
-1. **jira_get_issue** - Get issue by key
-2. **jira_search** - Search issues using JQL (optimized with 17 default fields)
-3. **jira_create_issue** - Create new issues
-4. **jira_update_issue** - Update existing issues
-5. **jira_add_comment** - Add comments to issues
-6. **jira_transition_issue** - Change issue status
-7. **jira_get_transitions** - Get available status transitions
-
-### Confluence Tools (6)
-1. **confluence_search** - Search pages using CQL (v1 API)
-2. **confluence_get_page** - Get page content (v2 API)
-3. **confluence_get_page_children** - List child pages (v2 API)
-4. **confluence_get_comments** - Get page comments (v2 API)
-5. **confluence_create_page** - Create new pages (v2 API)
-6. **confluence_update_page** - Update existing pages (v2 API)
-
-### Optimizations
-
-**Jira Search Field Filtering**:
-- Default 17 fields: key, summary, status, priority, issuetype, assignee, reporter, creator, created, updated, duedate, resolutiondate, project, labels, components, parent, subtasks
-- Configurable via environment variables or API parameters
-- Excludes heavy fields (description) for token efficiency
-
-**Project/Space Filtering**:
-- Optional scoping to specific projects or spaces
-- Auto-injected into queries when configured
+- [왜 mcp-atlassian인가?](#🤖-왜-mcp-atlassian인가)
+- [AI Agent 활용 예시](#💬-ai-agent-활용-예시)
+- [3단계 시작하기](#🚀-3단계-시작하기)
+- [환경변수 상세 가이드](#🎛️-환경변수-상세-가이드)
+- [Jira Search 필드 최적화](#🔍-jira-search-필드-최적화)
+- [기술 스택](#📊-기술-스택)
+- [프로젝트 구조](#🏗️-프로젝트-구조)
+- [개발](#🛠️-개발)
+- [보안](#🔐-보안)
+- [Troubleshooting](#❓-troubleshooting)
+- [참고 자료](#📚-참고-자료)
+- [라이센스](#📝-라이센스)
+- [기여](#🤝-기여)
 
 ---
 
-## Quick Start
+## 🤖 왜 mcp-atlassian인가?
 
-### Prerequisites
-- Rust 1.90 or later ([Install Rust](https://rustup.rs/))
-- Atlassian Cloud account
-- API Token ([Generate here](https://id.atlassian.com/manage-profile/security/api-tokens))
+AI Agent가 Atlassian을 사용할 때 **최적화된 경험**을 제공합니다:
 
-### Installation
+### ⚡ AI Agent를 위한 응답 최적화
+- **Jira 검색 필드 최적화**: 17개 핵심 필드만 반환 (description 제외)
+  ```
+  기본 필드: key, summary, status, priority, issuetype, assignee,
+            reporter, creator, created, updated, duedate, resolutiondate,
+            project, labels, components, parent, subtasks
+  ```
+- **커스터마이징 가능**: 환경변수로 필요한 필드만 요청
+- **확장 필드 제외**: `-renderedFields`로 불필요한 데이터 제거
+
+### 🚀 초경량 Self-Hosted
+- **4.4MB 단일 바이너리**: 별도 런타임 불필요
+- **즉시 실행**: 네이티브 바이너리로 빠른 시작
+- **낮은 리소스**: Rust의 메모리 효율성
+
+### 🔧 13개 MCP 도구
+**Jira (7개)**:
+- `jira_search` - JQL 검색 (최적화된 필드)
+- `jira_get_issue` - 이슈 상세 조회
+- `jira_create_issue` - 이슈 생성
+- `jira_update_issue` - 이슈 수정
+- `jira_add_comment` - 댓글 추가
+- `jira_transition_issue` - 상태 전환
+- `jira_get_transitions` - 가능한 전환 조회
+
+**Confluence (6개)**:
+- `confluence_search` - CQL 검색
+- `confluence_get_page` - 페이지 조회
+- `confluence_get_page_children` - 하위 페이지 목록
+- `confluence_get_comments` - 댓글 조회
+- `confluence_create_page` - 페이지 생성
+- `confluence_update_page` - 페이지 수정
+
+### 🔒 안전한 접근 제어
+- **프로젝트/스페이스 필터링**: 특정 프로젝트/스페이스만 접근
+- **환경변수 기반 인증**: API Token 안전 관리
+- **HTTPS 전용**: 모든 통신 암호화
+
+---
+
+## 💬 AI Agent 활용 예시
+
+### Claude Desktop에서
+```
+사용자: "이번 주 생성된 버그 목록 보여줘"
+→ AI Agent가 jira_search 도구 자동 호출
+→ 최적화된 17개 필드 응답
+
+사용자: "PROJ-123에 코드 리뷰 완료 댓글 달아줘"
+→ AI Agent가 jira_add_comment 도구 호출
+→ Atlassian Document Format 자동 변환
+
+사용자: "프로젝트 README 페이지 만들어줘"
+→ AI Agent가 confluence_create_page 도구 호출
+→ 스페이스 자동 확인 및 페이지 생성
+```
+
+---
+
+## 🚀 3단계 시작하기
+
+**전제 조건:** Rust 1.90+ 설치 필요 ([설치 가이드](https://www.rust-lang.org/tools/install))
+**총 소요 시간:** ~10분 (Rust 이미 설치된 경우) ⚡
+
+### 1️⃣ 빌드 (⏱️ ~5분)
 
 ```bash
-# Clone repository
+# Rust 설치 (1.90+)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 저장소 클론
 git clone https://github.com/junyeong-ai/mcp-atlassian.git
 cd mcp-atlassian
 
-# Build release binary
+# Release 빌드
 cargo build --release
 
-# Binary location: target/release/mcp-atlassian (4.4MB)
+# 바이너리 위치: target/release/mcp-atlassian (4.4MB)
 ```
 
-### Configuration
+### 2️⃣ 환경변수 설정 (⏱️ ~3분)
 
-Create a `.env` file:
+`.env` 파일 생성:
 
 ```env
-# Required
+# 필수 (3개)
 ATLASSIAN_DOMAIN=yourcompany.atlassian.net
 ATLASSIAN_EMAIL=you@example.com
 ATLASSIAN_API_TOKEN=your_api_token_here
 
-# Optional - Performance
-MAX_CONNECTIONS=100
-REQUEST_TIMEOUT_MS=30000
-LOG_LEVEL=warn
-
-# Optional - Jira Search Field Configuration
+# 선택 - 필드 최적화 (기본: 17개 필드)
 JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
 JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
 
-# Optional - Scoped Access
+# 선택 - 접근 제어
 JIRA_PROJECTS_FILTER=PROJ1,PROJ2
 CONFLUENCE_SPACES_FILTER=SPACE1,SPACE2
+
+# 선택 - 성능
+REQUEST_TIMEOUT_MS=30000
+LOG_LEVEL=warn
 ```
 
-### Claude Desktop Setup
+**API Token 생성**: [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 
-Add to `claude_desktop_config.json`:
+### 3️⃣ Claude Desktop 연결 (⏱️ ~2분)
+
+`claude_desktop_config.json` 편집:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%/Claude/claude_desktop_config.json`
@@ -103,7 +154,7 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "atlassian": {
-      "command": "/path/to/mcp-atlassian/target/release/mcp-atlassian",
+      "command": "/Users/yourname/mcp-atlassian/target/release/mcp-atlassian",
       "env": {
         "ATLASSIAN_DOMAIN": "yourcompany.atlassian.net",
         "ATLASSIAN_EMAIL": "you@example.com",
@@ -114,171 +165,380 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop to load the server.
+Claude Desktop 재시작 → 🎉 사용 준비 완료!
 
 ---
 
-## Configuration Reference
+## 🎛️ 환경변수 상세 가이드
 
-### Required Variables
-- `ATLASSIAN_DOMAIN` - Atlassian domain (e.g., `company.atlassian.net`)
-- `ATLASSIAN_EMAIL` - Account email
-- `ATLASSIAN_API_TOKEN` - API token from Atlassian
+### 필드 최적화
 
-### Optional - Performance
-- `MAX_CONNECTIONS` - HTTP pool size (default: 100, range: 1-1000)
-- `REQUEST_TIMEOUT_MS` - Request timeout in ms (default: 30000, range: 100-60000)
-- `LOG_LEVEL` - Logging level: error, warn, info, debug, trace (default: warn)
+#### `JIRA_SEARCH_DEFAULT_FIELDS`
+전체 기본 필드를 완전히 대체합니다.
 
-### Optional - Jira Search Field Configuration
-- `JIRA_SEARCH_DEFAULT_FIELDS` - Override default fields completely (comma-separated)
-- `JIRA_SEARCH_CUSTOM_FIELDS` - Add custom fields to defaults (comma-separated, e.g., `customfield_10015`)
+```env
+# 최소 필드만 요청 (최대 최적화)
+JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
+```
 
-**Field Resolution Priority**:
-1. API call `fields` parameter (highest)
-2. `JIRA_SEARCH_DEFAULT_FIELDS` environment variable
-3. Built-in defaults (17 fields) + `JIRA_SEARCH_CUSTOM_FIELDS`
-4. Built-in defaults only (fallback)
+#### `JIRA_SEARCH_CUSTOM_FIELDS`
+기본 17개 필드에 추가 필드를 확장합니다.
 
-**Built-in Default Fields (17)**:
-- Identification: key
-- Core: summary, status, priority, issuetype
-- People: assignee, reporter, creator
-- Dates: created, updated, duedate, resolutiondate
-- Classification: project, labels, components
-- Hierarchy: parent, subtasks
+```env
+# 기본 17개 + 커스텀 필드 2개 = 총 19개
+JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
+```
 
-### Optional - Scoped Access
-- `JIRA_PROJECTS_FILTER` - Limit to specific Jira projects (comma-separated)
-- `CONFLUENCE_SPACES_FILTER` - Limit to specific Confluence spaces (comma-separated)
+**필드 결정 우선순위**:
+
+```
+┌─────────────────────────────────┐
+│ 1. API fields 파라미터           │  ← 최우선 (명시적 요청)
+└─────────────────────────────────┘
+           ↓ (없으면)
+┌─────────────────────────────────┐
+│ 2. JIRA_SEARCH_DEFAULT_FIELDS   │  ← 기본값 완전 대체
+└─────────────────────────────────┘
+           ↓ (없으면)
+┌─────────────────────────────────┐
+│ 3. 기본 17개 필드                │  ← 내장 기본값
+│    + JIRA_SEARCH_CUSTOM_FIELDS  │     (선택적 확장)
+└─────────────────────────────────┘
+```
+
+### 접근 제어
+
+#### `JIRA_PROJECTS_FILTER`
+특정 Jira 프로젝트만 접근 허용:
+
+```env
+JIRA_PROJECTS_FILTER=TEAM1,TEAM2,PROJ3
+```
+
+AI Agent가 JQL에 프로젝트를 명시하지 않으면 자동으로 필터 추가:
+```
+사용자 JQL: status = Open
+실제 실행: project IN ("TEAM1","TEAM2","PROJ3") AND (status = Open)
+```
+
+#### `CONFLUENCE_SPACES_FILTER`
+특정 Confluence 스페이스만 접근 허용:
+
+```env
+CONFLUENCE_SPACES_FILTER=TEAM,DOCS,KB
+```
+
+### 성능 튜닝
+
+#### `REQUEST_TIMEOUT_MS`
+API 요청 타임아웃 (기본: 30000ms):
+
+```env
+REQUEST_TIMEOUT_MS=10000  # 빠른 실패 (네트워크 빠른 환경)
+REQUEST_TIMEOUT_MS=60000  # 느린 네트워크 대응
+```
+
+#### `LOG_LEVEL`
+로그 상세도 (기본: warn):
+
+```env
+LOG_LEVEL=error  # 에러만
+LOG_LEVEL=info   # 상세 로그
+LOG_LEVEL=debug  # 디버깅용
+```
 
 ---
 
-## Project Structure
+## 🔍 Jira Search 필드 최적화
+
+### 기본 17개 필드 (카테고리별)
+
+| 카테고리 | 필드 | 설명 |
+|---------|------|------|
+| 🔑 **식별** | `key` | 이슈 고유 키 (예: PROJ-123) |
+| 📝 **핵심 메타데이터** | `summary` | 이슈 제목 |
+| | `status` | 현재 상태 (Open, In Progress 등) |
+| | `priority` | 우선순위 (High, Medium, Low) |
+| | `issuetype` | 이슈 유형 (Bug, Task, Story 등) |
+| 👥 **담당자** | `assignee` | 할당된 담당자 |
+| | `reporter` | 이슈 보고자 |
+| | `creator` | 이슈 생성자 |
+| 📅 **날짜** | `created` | 생성일 |
+| | `updated` | 최종 수정일 |
+| | `duedate` | 마감일 |
+| | `resolutiondate` | 해결일 |
+| 🏷️ **분류** | `project` | 프로젝트 정보 |
+| | `labels` | 라벨 목록 |
+| | `components` | 컴포넌트 목록 |
+| 🌳 **계층** | `parent` | 상위 이슈 |
+| | `subtasks` | 하위 이슈 목록 |
+
+### 제외된 필드
+
+- **`description`**: 대용량 텍스트 필드 (상세 조회 시에만 포함)
+- **`id`**: `key`와 중복
+- **`renderedFields`**: 렌더링된 HTML (expand=-renderedFields)
+
+### 실전 활용
+
+```bash
+# 방법 1: API 호출 시 명시 (최우선)
+{
+  "jql": "project = KEY",
+  "fields": ["key", "summary", "status"]
+}
+
+# 방법 2: 환경변수로 기본값 변경
+JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
+
+# 방법 3: 기본값에 추가
+JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015
+```
+
+---
+
+## 📊 기술 스택
+
+| 구성요소 | 기술 | 특징 |
+|---------|------|------|
+| **언어** | Rust 1.90+ (Edition 2024) | 메모리 안전, 고성능 |
+| **런타임** | Tokio 1.47 | 비동기 I/O |
+| **HTTP** | Reqwest 0.12 (rustls) | TLS 1.2+ 지원 |
+| **직렬화** | Serde 1.0 | JSON 처리 |
+| **로깅** | Tracing 0.1 | 구조화된 로깅 |
+| **빌드 최적화** | LTO + Strip | 4.4MB 바이너리 |
+
+### API 버전
+- **Jira**: REST API v3
+- **Confluence**: REST API v2 (검색만 v1)
+
+### MCP 프로토콜
+- JSON-RPC 2.0 over stdio
+- 지원 버전: `2024-11-05`, `2025-06-18`
+
+---
+
+## 🏗️ 프로젝트 구조
 
 ```
 src/
-├── main.rs                     - Application entry point
+├── main.rs                   # 진입점
 ├── config/
-│   └── mod.rs                  - Environment configuration
+│   └── mod.rs                # 환경변수 관리
 ├── mcp/
-│   ├── server.rs               - MCP protocol server
-│   ├── handlers.rs             - Tool registration
-│   └── types.rs                - Protocol types
+│   ├── server.rs             # MCP 프로토콜 서버
+│   ├── handlers.rs           # 도구 등록
+│   └── types.rs              # MCP 타입 정의
 ├── tools/
-│   ├── handler.rs              - Tool trait definition
+│   ├── handler.rs            # ToolHandler trait
 │   ├── jira/
-│   │   ├── mod.rs              - 7 Jira tools
-│   │   └── field_filtering.rs  - Field optimization
+│   │   ├── mod.rs            # 7개 Jira 도구
+│   │   └── field_filtering.rs # 필드 최적화
 │   └── confluence/
-│       ├── mod.rs              - 6 Confluence tools
-│       └── field_filtering.rs  - API optimization
+│       ├── mod.rs            # 6개 Confluence 도구
+│       └── field_filtering.rs # API 최적화
 └── utils/
-    ├── http_utils.rs           - HTTP client
-    └── logging.rs              - Structured logging
+    ├── http_utils.rs         # HTTP 클라이언트
+    └── logging.rs            # 구조화된 로깅
 ```
 
 ---
 
-## Development
+## 🛠️ 개발
 
-### Building
+### 빌드
 
 ```bash
-# Development build
+# 개발 빌드
 cargo build
 
-# Release build (optimized)
+# Release 빌드 (최적화)
 cargo build --release
 
-# Run directly
+# 직접 실행
 cargo run
 
-# Check without building
+# 타입 체크만
 cargo check
 ```
 
-### Testing
+### 테스트
 
 ```bash
-# Run all tests
+# 전체 테스트
 cargo test
 
-# Run with output
+# 출력 포함
 cargo test -- --nocapture
 
-# Run specific test
+# 특정 테스트
 cargo test test_config_validation
 ```
 
-### Code Quality
+### 코드 품질
 
 ```bash
-# Format code
+# 포맷팅
 cargo fmt
 
-# Lint code
+# Lint
 cargo clippy
 
-# Check for issues
-cargo check
+# 전체 검사
+cargo check && cargo clippy && cargo test
 ```
 
----
+### Release 빌드 설정
 
-## Technical Details
-
-### Stack
-- **Language**: Rust 1.90+ (Edition 2024)
-- **Runtime**: Tokio 1.47 (async)
-- **HTTP**: Reqwest 0.12 (rustls-tls)
-- **Serialization**: Serde 1.0
-- **Logging**: Tracing 0.1
-
-### MCP Protocol
-- JSON-RPC 2.0 over stdio
-- Supported versions: 2024-11-05, 2025-06-18
-- Methods: initialize, initialized, tools/list, tools/call, prompts/list, resources/list
-
-### API Versions
-- **Jira**: REST API v3
-- **Confluence**: REST API v2 (v1 for search only, as v2 has no search endpoint)
-
-### Build Configuration
 ```toml
 [profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
+opt-level = 3       # 최대 최적화
+lto = true          # Link-time optimization
+codegen-units = 1   # 단일 코드 생성
+strip = true        # 심볼 제거
 ```
 
-**Result**: 4.4MB binary with full optimization
+**결과**: 4.4MB 최적화된 바이너리
 
 ---
 
-## Security
+## 🔐 보안
 
-- **Authentication**: HTTP Basic Auth with API token
-- **Transport**: HTTPS only
-- **Credentials**: Environment variables or .env file
-- **Access Control**: Optional project/space filtering
+### 인증
+- **방식**: HTTP Basic Auth
+- **포맷**: `Authorization: Basic base64(email:api_token)`
+- **전송**: HTTPS 전용
+
+### 입력 검증
+- 필수 파라미터 검증
+- JQL/CQL은 Atlassian API로 전달
+- JSON 스키마 검증
+
+### 접근 제어
+- 프로젝트/스페이스 필터링 (서버 측)
+- 사용자 지정 필터 우선
+- 우회 불가능
 
 ---
 
-## Resources
+## ❓ Troubleshooting
 
-- [MCP Protocol](https://modelcontextprotocol.io)
+### Claude Desktop에서 도구가 보이지 않아요
+
+**해결 방법:**
+
+1. **설정 파일 확인**
+   ```bash
+   # macOS
+   cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
+
+   # Windows
+   type %APPDATA%\Claude\claude_desktop_config.json
+   ```
+
+2. **Claude Desktop 완전 재시작**
+   - 메뉴에서 "Quit" (단순 창 닫기 아님)
+   - 다시 실행
+
+3. **바이너리 경로 확인**
+   ```bash
+   # 바이너리가 존재하는지 확인
+   ls -la target/release/mcp-atlassian
+
+   # 실행 권한 확인
+   chmod +x target/release/mcp-atlassian
+   ```
+
+### Atlassian API 연결 실패
+
+**원인 1: API Token 오류**
+- [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)에서 새로 생성
+- `.env` 파일 또는 `claude_desktop_config.json`에 올바르게 설정했는지 확인
+
+**원인 2: Domain 설정 오류**
+```env
+# 올바른 형식 (https:// 포함하지 않음)
+ATLASSIAN_DOMAIN=yourcompany.atlassian.net
+
+# 잘못된 형식
+ATLASSIAN_DOMAIN=https://yourcompany.atlassian.net  ❌
+```
+
+**원인 3: 네트워크 타임아웃**
+```env
+# 타임아웃 증가 (기본: 30000ms)
+REQUEST_TIMEOUT_MS=60000
+```
+
+### 특정 프로젝트에만 접근하고 싶어요
+
+`JIRA_PROJECTS_FILTER` 사용:
+```env
+JIRA_PROJECTS_FILTER=PROJ1,PROJ2,PROJ3
+```
+
+자세한 내용은 [접근 제어](#접근-제어) 섹션 참조.
+
+### 커스텀 필드를 추가하고 싶어요
+
+`JIRA_SEARCH_CUSTOM_FIELDS` 사용:
+```env
+JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
+```
+
+자세한 내용은 [필드 최적화](#필드-최적화) 섹션 참조.
+
+### 로그 확인 방법
+
+```env
+# .env 파일에서 로그 레벨 변경
+LOG_LEVEL=debug  # error, warn, info, debug, trace 중 선택
+```
+
+```bash
+# macOS에서 서버 로그 확인 (Claude Desktop 로그)
+tail -f ~/Library/Logs/Claude/mcp*.log
+
+# 또는 직접 실행하여 로그 확인
+./target/release/mcp-atlassian
+```
+
+---
+
+## 📚 참고 자료
+
+### Atlassian API
 - [Jira REST API v3](https://developer.atlassian.com/cloud/jira/platform/rest/v3/)
 - [Confluence REST API v2](https://developer.atlassian.com/cloud/confluence/rest/v2/)
-- [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+- [Atlassian Document Format](https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/)
+
+### MCP
+- [MCP 명세](https://modelcontextprotocol.io)
+- [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
+
+### Rust
+- [Tokio](https://docs.rs/tokio)
+- [Reqwest](https://docs.rs/reqwest)
+- [Serde JSON](https://docs.rs/serde_json)
 
 ---
 
-## License
+## 📝 라이센스
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - [LICENSE](LICENSE) 파일 참조
 
 ---
 
-**Built with Rust 🦀**
+## 🤝 기여
+
+Issue 및 Pull Request 환영합니다!
+
+1. Fork
+2. Feature 브랜치 생성 (`git checkout -b feature/amazing`)
+3. 변경사항 커밋 (`git commit -m 'Add amazing feature'`)
+4. 브랜치 푸시 (`git push origin feature/amazing`)
+5. Pull Request 생성
+
+---
+
+**Rust로 만든 AI Agent를 위한 초경량 MCP 서버** 🦀

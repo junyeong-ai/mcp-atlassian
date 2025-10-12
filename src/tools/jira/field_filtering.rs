@@ -36,11 +36,11 @@ pub fn resolve_search_fields(
     config: &crate::config::Config,
 ) -> Vec<String> {
     // Priority 1: API-provided fields override everything
-    if let Some(fields) = api_fields {
-        if !fields.is_empty() {
-            tracing::debug!("Using {} fields from API parameters", fields.len());
-            return fields;
-        }
+    if let Some(fields) = api_fields
+        && !fields.is_empty()
+    {
+        tracing::debug!("Using {} fields from API parameters", fields.len());
+        return fields;
     }
 
     // Priority 2: Environment variable completely replaces defaults
@@ -69,6 +69,36 @@ pub fn resolve_search_fields(
 
     tracing::debug!("Resolved {} total fields for Jira search", fields.len());
     fields
+}
+
+/// Simple field filtering for non-search endpoints (GetIssue, CreateIssue, etc.)
+/// These endpoints keep the old ESSENTIAL_FIELDS for backward compatibility
+pub const ESSENTIAL_FIELDS: &[&str] = &[
+    "key",
+    "summary",
+    "description",
+    "issuetype",
+    "status",
+    "priority",
+    "assignee",
+    "reporter",
+    "created",
+    "updated",
+    "project",
+];
+
+/// Helper function to apply field filtering to URLs for non-search endpoints
+pub fn apply_field_filtering_to_url(base_url: &str) -> String {
+    let fields = ESSENTIAL_FIELDS.join(",");
+
+    let url_with_fields = if base_url.contains('?') {
+        format!("{}&fields={}", base_url, fields)
+    } else {
+        format!("{}?fields={}", base_url, fields)
+    };
+
+    // Exclude heavy rendered fields
+    format!("{}&expand=-renderedFields", url_with_fields)
 }
 
 #[cfg(test)]
@@ -198,34 +228,4 @@ mod tests {
         assert!(result.contains(&"parent".to_string()));
         assert!(result.contains(&"subtasks".to_string()));
     }
-}
-
-/// Simple field filtering for non-search endpoints (GetIssue, CreateIssue, etc.)
-/// These endpoints keep the old ESSENTIAL_FIELDS for backward compatibility
-pub const ESSENTIAL_FIELDS: &[&str] = &[
-    "key",
-    "summary",
-    "description",
-    "issuetype",
-    "status",
-    "priority",
-    "assignee",
-    "reporter",
-    "created",
-    "updated",
-    "project",
-];
-
-/// Helper function to apply field filtering to URLs for non-search endpoints
-pub fn apply_field_filtering_to_url(base_url: &str) -> String {
-    let fields = ESSENTIAL_FIELDS.join(",");
-
-    let url_with_fields = if base_url.contains('?') {
-        format!("{}&fields={}", base_url, fields)
-    } else {
-        format!("{}?fields={}", base_url, fields)
-    };
-
-    // Exclude heavy rendered fields
-    format!("{}&expand=-renderedFields", url_with_fields)
 }

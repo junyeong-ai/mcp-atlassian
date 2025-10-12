@@ -10,7 +10,6 @@ pub struct Config {
     pub atlassian_api_token: String,
 
     // Performance
-    pub max_connections: usize,
     pub request_timeout_ms: u64,
 
     // Project/Space Filtering
@@ -69,10 +68,6 @@ impl Config {
             atlassian_api_token: env::var("ATLASSIAN_API_TOKEN")
                 .context("ATLASSIAN_API_TOKEN environment variable not set")?,
 
-            max_connections: env::var("MAX_CONNECTIONS")
-                .unwrap_or_else(|_| "100".to_string())
-                .parse()
-                .context("Invalid MAX_CONNECTIONS")?,
             request_timeout_ms: env::var("REQUEST_TIMEOUT_MS")
                 .unwrap_or_else(|_| "30000".to_string())
                 .parse()
@@ -122,10 +117,6 @@ impl Config {
             anyhow::bail!("API token cannot be empty");
         }
 
-        if self.max_connections == 0 || self.max_connections > 1000 {
-            anyhow::bail!("Max connections must be between 1 and 1000");
-        }
-
         if self.request_timeout_ms < 100 || self.request_timeout_ms > 60000 {
             anyhow::bail!("Request timeout must be between 100ms and 60000ms");
         }
@@ -157,7 +148,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token123".to_string(),
-            max_connections: 100,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -174,7 +164,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -193,7 +182,6 @@ mod tests {
             atlassian_domain: "http://test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -213,7 +201,6 @@ mod tests {
             atlassian_domain: "invalid-domain".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token123".to_string(),
-            max_connections: 100,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -230,7 +217,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "invalid-email".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -247,24 +233,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "".to_string(),
-            max_connections: 10,
-            request_timeout_ms: 30000,
-            jira_projects_filter: vec![],
-            confluence_spaces_filter: vec![],
-            jira_search_default_fields: None,
-            jira_search_custom_fields: vec![],
-        };
-
-        assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_invalid_max_connections_zero() {
-        let config = Config {
-            atlassian_domain: "test.atlassian.net".to_string(),
-            atlassian_email: "test@example.com".to_string(),
-            atlassian_api_token: "token".to_string(),
-            max_connections: 0,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -281,7 +249,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 50,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -299,7 +266,6 @@ mod tests {
             atlassian_domain: "https://test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -313,29 +279,11 @@ mod tests {
     }
 
     #[test]
-    fn test_max_connections_upper_bound() {
-        let config = Config {
-            atlassian_domain: "test.atlassian.net".to_string(),
-            atlassian_email: "test@example.com".to_string(),
-            atlassian_api_token: "token".to_string(),
-            max_connections: 1001, // Above max
-            request_timeout_ms: 30000,
-            jira_projects_filter: vec![],
-            confluence_spaces_filter: vec![],
-            jira_search_default_fields: None,
-            jira_search_custom_fields: vec![],
-        };
-
-        assert!(config.validate().is_err());
-    }
-
-    #[test]
     fn test_request_timeout_upper_bound() {
         let config = Config {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 60001, // Above max
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -352,7 +300,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec!["PROJ1".to_string(), "PROJ2".to_string()],
             confluence_spaces_filter: vec![],
@@ -371,7 +318,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec!["SPACE1".to_string(), "SPACE2".to_string()],
@@ -390,7 +336,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -416,7 +361,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -439,7 +383,6 @@ mod tests {
             atlassian_domain: "https://test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "token".to_string(),
-            max_connections: 10,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],

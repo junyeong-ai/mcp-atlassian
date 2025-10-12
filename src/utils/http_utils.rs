@@ -23,13 +23,11 @@ mod tests {
         email: &str,
         token: &str,
         timeout_ms: u64,
-        max_connections: usize,
     ) -> Config {
         Config {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: email.to_string(),
             atlassian_api_token: token.to_string(),
-            max_connections,
             request_timeout_ms: timeout_ms,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
@@ -42,7 +40,7 @@ mod tests {
 
     #[test]
     fn test_create_atlassian_client_success() {
-        let config = create_test_config("test@example.com", "token123", 30000, 100);
+        let config = create_test_config("test@example.com", "token123", 30000);
         let client = create_atlassian_client(&config);
 
         // Client should be created successfully
@@ -52,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_create_atlassian_client_with_custom_timeout() {
-        let config = create_test_config("test@example.com", "token123", 5000, 100);
+        let config = create_test_config("test@example.com", "token123", 5000);
         let client = create_atlassian_client(&config);
 
         // Client should respect custom timeout configuration
@@ -61,7 +59,7 @@ mod tests {
 
     #[test]
     fn test_create_auth_header_format() {
-        let config = create_test_config("user@example.com", "secret123", 30000, 100);
+        let config = create_test_config("user@example.com", "secret123", 30000);
         let auth_header = create_auth_header(&config);
 
         // Should start with "Basic "
@@ -74,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_create_auth_header_base64_encoding() {
-        let config = create_test_config("test@example.com", "mytoken", 30000, 100);
+        let config = create_test_config("test@example.com", "mytoken", 30000);
         let auth_header = create_auth_header(&config);
 
         // Decode and verify the credentials
@@ -89,7 +87,7 @@ mod tests {
     #[test]
     fn test_create_auth_header_with_special_characters() {
         // Test with special characters in email and token
-        let config = create_test_config("user+test@example.com", "token!@#$%^&*()", 30000, 100);
+        let config = create_test_config("user+test@example.com", "token!@#$%^&*()", 30000);
         let auth_header = create_auth_header(&config);
 
         // Should properly encode special characters
@@ -106,7 +104,7 @@ mod tests {
     #[test]
     fn test_create_auth_header_deterministic() {
         // Same config should produce same header
-        let config = create_test_config("test@example.com", "token123", 30000, 100);
+        let config = create_test_config("test@example.com", "token123", 30000);
         let header1 = create_auth_header(&config);
         let header2 = create_auth_header(&config);
 
@@ -116,8 +114,8 @@ mod tests {
     #[test]
     fn test_create_auth_header_different_configs() {
         // Different configs should produce different headers
-        let config1 = create_test_config("user1@example.com", "token1", 30000, 100);
-        let config2 = create_test_config("user2@example.com", "token2", 30000, 100);
+        let config1 = create_test_config("user1@example.com", "token1", 30000);
+        let config2 = create_test_config("user2@example.com", "token2", 30000);
 
         let header1 = create_auth_header(&config1);
         let header2 = create_auth_header(&config2);

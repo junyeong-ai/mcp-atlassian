@@ -382,7 +382,6 @@ mod tests {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: "test@example.com".to_string(),
             atlassian_api_token: "test-token".to_string(),
-            max_connections: 100,
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],

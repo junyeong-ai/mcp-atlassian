@@ -33,26 +33,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 anyhow = "1.0"
 
 # Environment variables
-dotenv = "0.15"
+dotenvy = "0.15"
 
 # Encoding
 base64 = "0.22"
 async-trait = "0.1"
-
-[dev-dependencies]
-# Async testing
-tokio-test = "0.4"
-
-# HTTP mocking
-wiremock = "0.6"
-
-# Performance benchmarks
-criterion = { version = "0.5", features = ["html_reports"] }
-
-# Benchmarks will be added later
-# [[bench]]
-# name = "performance"
-# harness = false
 
 [profile.release]
 opt-level = 3

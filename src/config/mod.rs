@@ -25,7 +25,7 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Result<Self> {
         // Load .env file if it exists
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
 
         let domain = env::var("ATLASSIAN_DOMAIN")
             .context("ATLASSIAN_DOMAIN environment variable not set")?;

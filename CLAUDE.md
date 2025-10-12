@@ -34,7 +34,7 @@ async-trait = "0.1"
 base64 = "0.22"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-dotenv = "0.15"
+dotenvy = "0.15"
 ```
 
 ### Build Configuration
@@ -110,7 +110,7 @@ src/
 #[tokio::main]
 async fn main() -> Result<()> {
     init_logging();
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     let config = Config::from_env()?;
     let server = McpServer::new(config).await?;
     server.run().await

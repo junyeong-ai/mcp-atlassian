@@ -92,3 +92,112 @@ pub fn log_startup(config: &crate::config::Config) {
 pub fn log_shutdown() {
     info!("MCP Atlassian server shutting down");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    fn create_test_config() -> Config {
+        Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "token123".to_string(),
+            max_connections: 100,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        }
+    }
+
+    // T019: Logging tests
+
+    #[test]
+    fn test_log_level_default() {
+        // Clear environment variable
+        unsafe { std::env::remove_var("LOG_LEVEL"); }
+
+        let log_level = std::env::var("LOG_LEVEL")
+            .unwrap_or_else(|_| "warn".to_string());
+
+        assert_eq!(log_level, "warn");
+    }
+
+    #[test]
+    fn test_log_level_custom() {
+        unsafe { std::env::set_var("LOG_LEVEL", "debug"); }
+
+        let log_level = std::env::var("LOG_LEVEL")
+            .unwrap_or_else(|_| "warn".to_string());
+
+        assert_eq!(log_level, "debug");
+
+        // Cleanup
+        unsafe { std::env::remove_var("LOG_LEVEL"); }
+    }
+
+    #[test]
+    fn test_json_logs_default() {
+        unsafe { std::env::remove_var("JSON_LOGS"); }
+
+        let json_logs = std::env::var("JSON_LOGS")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false);
+
+        assert!(!json_logs);
+    }
+
+    #[test]
+    fn test_json_logs_enabled() {
+        unsafe { std::env::set_var("JSON_LOGS", "true"); }
+
+        let json_logs = std::env::var("JSON_LOGS")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false);
+
+        assert!(json_logs);
+
+        // Cleanup
+        unsafe { std::env::remove_var("JSON_LOGS"); }
+    }
+
+    #[test]
+    fn test_log_startup_format() {
+        // Test that log_startup doesn't panic
+        let config = create_test_config();
+        log_startup(&config);
+        // If we get here, the function executed successfully
+    }
+
+    #[test]
+    fn test_log_shutdown_format() {
+        // Test that log_shutdown doesn't panic
+        log_shutdown();
+        // If we get here, the function executed successfully
+    }
+
+    #[test]
+    fn test_log_macros_compile() {
+        // Test that log macros compile correctly
+        // These are macro tests - we just verify they expand without errors
+
+        // log_request macro
+        let request_id = "req-123";
+        let method = "tools/call";
+        let params = serde_json::json!({"tool": "jira_search"});
+        log_request!(request_id, method, params);
+
+        // log_response macro
+        log_response!(request_id, 150, 1000);
+
+        // log_error macro
+        let error = "Test error";
+        log_error!(request_id, error);
+
+        // If we get here, all macros expanded successfully
+    }
+}

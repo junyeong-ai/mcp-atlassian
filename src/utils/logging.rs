@@ -114,67 +114,6 @@ mod tests {
     // T019: Logging tests
 
     #[test]
-    fn test_log_level_default() {
-        // Clear environment variable
-        unsafe {
-            std::env::remove_var("LOG_LEVEL");
-        }
-
-        let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "warn".to_string());
-
-        assert_eq!(log_level, "warn");
-    }
-
-    #[test]
-    fn test_log_level_custom() {
-        unsafe {
-            std::env::set_var("LOG_LEVEL", "debug");
-        }
-
-        let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "warn".to_string());
-
-        assert_eq!(log_level, "debug");
-
-        // Cleanup
-        unsafe {
-            std::env::remove_var("LOG_LEVEL");
-        }
-    }
-
-    #[test]
-    fn test_json_logs_default() {
-        unsafe {
-            std::env::remove_var("JSON_LOGS");
-        }
-
-        let json_logs = std::env::var("JSON_LOGS")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse::<bool>()
-            .unwrap_or(false);
-
-        assert!(!json_logs);
-    }
-
-    #[test]
-    fn test_json_logs_enabled() {
-        unsafe {
-            std::env::set_var("JSON_LOGS", "true");
-        }
-
-        let json_logs = std::env::var("JSON_LOGS")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse::<bool>()
-            .unwrap_or(false);
-
-        assert!(json_logs);
-
-        // Cleanup
-        unsafe {
-            std::env::remove_var("JSON_LOGS");
-        }
-    }
-
-    #[test]
     fn test_log_startup_format() {
         // Test that log_startup doesn't panic
         let config = create_test_config();

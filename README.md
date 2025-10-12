@@ -2,7 +2,7 @@
 
 > Rust-based MCP server for Jira and Confluence integration
 
-A Model Context Protocol (MCP) server that connects AI assistants to Atlassian Cloud, providing 13 tools for Jira and Confluence operations.
+Model Context Protocol (MCP) server that connects AI assistants to Atlassian Cloud, providing 13 tools for Jira and Confluence operations.
 
 [![Rust](https://img.shields.io/badge/rust-1.90%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -11,24 +11,11 @@ A Model Context Protocol (MCP) server that connects AI assistants to Atlassian C
 
 ---
 
-## What is This?
-
-**mcp-atlassian** implements the Model Context Protocol to enable AI assistants like Claude to interact with Atlassian Cloud services (Jira and Confluence) through natural language.
-
-**Technical Stack:**
-- Written in Rust 1.90+ (Edition 2024)
-- Tokio async runtime
-- MCP protocol support (versions 2024-11-05 and 2025-06-18)
-- 13 implemented tools (7 Jira + 6 Confluence)
-- Single binary deployment (4.4MB)
-
----
-
 ## Features
 
 ### Jira Tools (7)
-1. **jira_get_issue** - Get detailed issue information
-2. **jira_search** - Search issues using JQL
+1. **jira_get_issue** - Get issue by key
+2. **jira_search** - Search issues using JQL (optimized with 17 default fields)
 3. **jira_create_issue** - Create new issues
 4. **jira_update_issue** - Update existing issues
 5. **jira_add_comment** - Add comments to issues
@@ -44,9 +31,15 @@ A Model Context Protocol (MCP) server that connects AI assistants to Atlassian C
 6. **confluence_update_page** - Update existing pages (v2 API)
 
 ### Optimizations
-- **Field Filtering**: Requests only 13 essential fields by default instead of all available fields
-- **Project/Space Filtering**: Optional scoping to specific projects or spaces
-- **Custom Field Support**: Configurable additional fields via environment variables
+
+**Jira Search Field Filtering**:
+- Default 17 fields: key, summary, status, priority, issuetype, assignee, reporter, creator, created, updated, duedate, resolutiondate, project, labels, components, parent, subtasks
+- Configurable via environment variables or API parameters
+- Excludes heavy fields (description) for token efficiency
+
+**Project/Space Filtering**:
+- Optional scoping to specific projects or spaces
+- Auto-injected into queries when configured
 
 ---
 
@@ -67,7 +60,7 @@ cd mcp-atlassian
 # Build release binary
 cargo build --release
 
-# Binary location: target/release/mcp-atlassian
+# Binary location: target/release/mcp-atlassian (4.4MB)
 ```
 
 ### Configuration
@@ -85,9 +78,9 @@ MAX_CONNECTIONS=100
 REQUEST_TIMEOUT_MS=30000
 LOG_LEVEL=warn
 
-# Optional - Field Filtering
-JIRA_CUSTOM_FIELDS=customfield_10001,customfield_10002
-CONFLUENCE_CUSTOM_INCLUDES=ancestors,history
+# Optional - Jira Search Field Configuration
+JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
+JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
 
 # Optional - Scoped Access
 JIRA_PROJECTS_FILTER=PROJ1,PROJ2
@@ -120,6 +113,42 @@ Restart Claude Desktop to load the server.
 
 ---
 
+## Configuration Reference
+
+### Required Variables
+- `ATLASSIAN_DOMAIN` - Atlassian domain (e.g., `company.atlassian.net`)
+- `ATLASSIAN_EMAIL` - Account email
+- `ATLASSIAN_API_TOKEN` - API token from Atlassian
+
+### Optional - Performance
+- `MAX_CONNECTIONS` - HTTP pool size (default: 100, range: 1-1000)
+- `REQUEST_TIMEOUT_MS` - Request timeout in ms (default: 30000, range: 100-60000)
+- `LOG_LEVEL` - Logging level: error, warn, info, debug, trace (default: warn)
+
+### Optional - Jira Search Field Configuration
+- `JIRA_SEARCH_DEFAULT_FIELDS` - Override default fields completely (comma-separated)
+- `JIRA_SEARCH_CUSTOM_FIELDS` - Add custom fields to defaults (comma-separated, e.g., `customfield_10015`)
+
+**Field Resolution Priority**:
+1. API call `fields` parameter (highest)
+2. `JIRA_SEARCH_DEFAULT_FIELDS` environment variable
+3. Built-in defaults (17 fields) + `JIRA_SEARCH_CUSTOM_FIELDS`
+4. Built-in defaults only (fallback)
+
+**Built-in Default Fields (17)**:
+- Identification: key
+- Core: summary, status, priority, issuetype
+- People: assignee, reporter, creator
+- Dates: created, updated, duedate, resolutiondate
+- Classification: project, labels, components
+- Hierarchy: parent, subtasks
+
+### Optional - Scoped Access
+- `JIRA_PROJECTS_FILTER` - Limit to specific Jira projects (comma-separated)
+- `CONFLUENCE_SPACES_FILTER` - Limit to specific Confluence spaces (comma-separated)
+
+---
+
 ## Project Structure
 
 ```
@@ -146,24 +175,6 @@ src/
 
 ---
 
-## Configuration Reference
-
-### Required Variables
-- `ATLASSIAN_DOMAIN` - Your Atlassian domain (e.g., `company.atlassian.net`)
-- `ATLASSIAN_EMAIL` - Your account email
-- `ATLASSIAN_API_TOKEN` - API token from Atlassian
-
-### Optional Variables
-- `MAX_CONNECTIONS` - HTTP pool size (default: 100, range: 1-1000)
-- `REQUEST_TIMEOUT_MS` - Request timeout (default: 30000, range: 100-60000)
-- `LOG_LEVEL` - Logging level (error/warn/info/debug/trace, default: warn)
-- `JIRA_CUSTOM_FIELDS` - Additional Jira fields (comma-separated)
-- `CONFLUENCE_CUSTOM_INCLUDES` - Additional Confluence includes
-- `JIRA_PROJECTS_FILTER` - Limit to specific Jira projects
-- `CONFLUENCE_SPACES_FILTER` - Limit to specific Confluence spaces
-
----
-
 ## Development
 
 ### Building
@@ -177,16 +188,22 @@ cargo build --release
 
 # Run directly
 cargo run
+
+# Check without building
+cargo check
 ```
 
 ### Testing
 
 ```bash
-# Run tests
+# Run all tests
 cargo test
 
 # Run with output
 cargo test -- --nocapture
+
+# Run specific test
+cargo test test_config_validation
 ```
 
 ### Code Quality
@@ -206,42 +223,41 @@ cargo check
 
 ## Technical Details
 
+### Stack
+- **Language**: Rust 1.90+ (Edition 2024)
+- **Runtime**: Tokio 1.47 (async)
+- **HTTP**: Reqwest 0.12 (rustls-tls)
+- **Serialization**: Serde 1.0
+- **Logging**: Tracing 0.1
+
 ### MCP Protocol
-- Implements JSON-RPC 2.0 over stdio
-- Supports protocol versions: 2024-11-05, 2025-06-18
-- Methods: initialize, tools/list, tools/call, prompts/list, resources/list
+- JSON-RPC 2.0 over stdio
+- Supported versions: 2024-11-05, 2025-06-18
+- Methods: initialize, initialized, tools/list, tools/call, prompts/list, resources/list
 
 ### API Versions
-- Jira: REST API v3
-- Confluence: REST API v2 (v1 for search only)
-
-### Dependencies
-- tokio 1.47 - Async runtime
-- reqwest 0.12 - HTTP client
-- serde 1.0 - Serialization
-- tracing 0.1 - Structured logging
+- **Jira**: REST API v3
+- **Confluence**: REST API v2 (v1 for search only, as v2 has no search endpoint)
 
 ### Build Configuration
-- Optimization level: 3
-- Link-time optimization: enabled
-- Codegen units: 1
-- Strip symbols: enabled
-- Binary size: 4.4MB
+```toml
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+```
+
+**Result**: 4.4MB binary with full optimization
 
 ---
 
 ## Security
 
-- Authentication: HTTP Basic Auth with API token
-- Transport: HTTPS only
-- Credentials: Environment variables only
-- Project/Space filtering for access control
-
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
+- **Authentication**: HTTP Basic Auth with API token
+- **Transport**: HTTPS only
+- **Credentials**: Environment variables or .env file
+- **Access Control**: Optional project/space filtering
 
 ---
 
@@ -254,4 +270,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Built with Rust 🦀 | MCP Protocol Implementation**
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+**Built with Rust 🦀**

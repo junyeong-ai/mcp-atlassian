@@ -129,11 +129,12 @@ pub struct Config {
     pub atlassian_api_token: String,
     pub max_connections: usize,
     pub request_timeout_ms: u64,
-    pub log_level: String,
-    pub jira_custom_fields: Vec<String>,
-    pub confluence_custom_includes: Vec<String>,
     pub jira_projects_filter: Vec<String>,
     pub confluence_spaces_filter: Vec<String>,
+
+    // Jira Search Field Configuration
+    pub jira_search_default_fields: Option<Vec<String>>,
+    pub jira_search_custom_fields: Vec<String>,
 }
 ```
 
@@ -274,29 +275,41 @@ All 13 tools implement this trait.
 
 **Purpose**: Jira response payload optimization
 
-**Essential Fields**:
+**Search Default Fields**:
 ```rust
-pub const ESSENTIAL_FIELDS: &[&str] = &[
-    "id", "key", "summary", "description", "issuetype",
-    "status", "priority", "assignee", "reporter", "creator",
-    "created", "updated", "project",
+pub const DEFAULT_SEARCH_FIELDS: &[&str] = &[
+    "key", "summary", "status", "priority", "issuetype",
+    "assignee", "reporter", "creator",
+    "created", "updated", "duedate", "resolutiondate",
+    "project", "labels", "components",
+    "parent", "subtasks",
 ];
 ```
 
-**FieldConfiguration**:
-- Load custom fields from `JIRA_CUSTOM_FIELDS` env var
-- Validate `customfield_*` format
-- Merge with essential fields
+**Field Resolution Function**:
+```rust
+pub fn resolve_search_fields(
+    api_fields: Option<Vec<String>>,
+    config: &Config,
+) -> Vec<String>
+```
+
+**Priority Hierarchy**:
+1. API-provided `fields` parameter
+2. `JIRA_SEARCH_DEFAULT_FIELDS` environment variable
+3. `DEFAULT_SEARCH_FIELDS` + `JIRA_SEARCH_CUSTOM_FIELDS`
+4. `DEFAULT_SEARCH_FIELDS` only
 
 **Query Parameter Generation**:
 ```rust
-?fields=id,key,summary,...&expand=-renderedFields
+?fields=key,summary,status,...&expand=-renderedFields
 ```
 
 **Optimization**:
-- Requests only needed fields
-- Excludes heavy `renderedFields` data
-- Reduces response size
+- Requests only 17 fields by default
+- Excludes `description` field (large text content)
+- Excludes `renderedFields` via expand parameter
+- Excludes `id` field (redundant with `key`)
 
 ### `tools/confluence/mod.rs`
 
@@ -404,10 +417,13 @@ REQUEST_TIMEOUT_MS=30000     # Timeout ms (100-60000)
 LOG_LEVEL=warn              # error/warn/info/debug/trace
 ```
 
-#### Optional - Field Filtering
+#### Optional - Jira Search Field Configuration
 ```env
-JIRA_CUSTOM_FIELDS=customfield_10001,customfield_10002
-CONFLUENCE_CUSTOM_INCLUDES=ancestors,history
+# Override default fields completely (17 built-in fields)
+JIRA_SEARCH_DEFAULT_FIELDS="key,summary,status,assignee,priority"
+
+# Add custom fields to built-in defaults
+JIRA_SEARCH_CUSTOM_FIELDS="customfield_10015,customfield_10016"
 ```
 
 #### Optional - Scoped Access
@@ -459,23 +475,57 @@ From `config/mod.rs`:
 
 ## Field Filtering Implementation
 
-### Jira Field Filtering
+### Jira Search Optimization
 
-**Default Fields** (13 essential):
-- `id`, `key`, `summary`, `description`
-- `issuetype`, `status`, `priority`
-- `assignee`, `reporter`, `creator`
-- `created`, `updated`, `project`
+**Search Default Fields** (17 optimized fields):
+- Identification: `key`
+- Core Metadata: `summary`, `status`, `priority`, `issuetype`
+- People: `assignee`, `reporter`, `creator`
+- Dates: `created`, `updated`, `duedate`, `resolutiondate`
+- Classification: `project`, `labels`, `components`
+- Hierarchy: `parent`, `subtasks`
+
+**Removed Fields** (for token efficiency):
+- `id` - Redundant with `key`
+- `description` - Heavy field (10-14K tokens), use `jira_get_issue` for details
+
+**Field Resolution Priority**:
+1. API `fields` parameter (highest)
+2. `JIRA_SEARCH_DEFAULT_FIELDS` env var (override defaults)
+3. Built-in defaults + `JIRA_SEARCH_CUSTOM_FIELDS` (extend defaults)
+4. Built-in defaults only (fallback)
+
+**Configuration**:
+```env
+# Override default fields completely
+JIRA_SEARCH_DEFAULT_FIELDS="key,summary,status,assignee"
+
+# Add custom fields to defaults
+JIRA_SEARCH_CUSTOM_FIELDS="customfield_10015,customfield_10016"
+```
+
+**Runtime Override**:
+```json
+{
+  "jql": "project = KEY",
+  "limit": 20,
+  "fields": ["key", "summary", "status", "assignee"]
+}
+```
 
 **Optimization**:
 ```rust
-?fields=id,key,summary,...&expand=-renderedFields
+?fields=key,summary,status,...&expand=-renderedFields
 ```
 
-**Effect**:
-- Requests only needed fields
-- Excludes `renderedFields` (HTML rendering)
-- Reduces API response size
+**Configuration**:
+- Default: 17 fields (excludes description)
+- Default limit: 20 issues per query
+- Configurable via environment variables or API parameters
+
+**Other Tools** (GetIssue, CreateIssue, etc.):
+- Use simplified 11-field filtering
+- Include `description` for detail views
 
 ### Confluence Field Filtering
 
@@ -550,10 +600,10 @@ let final_cql = if !config.confluence_spaces_filter.is_empty() {
 ### Build Commands
 
 ```bash
-# Development build (~30s)
+# Development build
 cargo build
 
-# Release build (~2min)
+# Release build (optimized)
 cargo build --release
 
 # Run with .env
@@ -612,13 +662,38 @@ strip = true            # Strip symbols
 
 ## Testing
 
-### Implemented Tests
+### Unit Tests (11 total)
 
-**Unit Tests** (`config/mod.rs`):
-- `test_config_validation()` - Valid configuration
-- `test_invalid_domain()` - Domain validation
+**Config Tests** (`config/mod.rs`):
+- `test_config_validation` - Valid configuration
+- `test_invalid_domain` - Domain validation
 
-### Manual Testing
+**Field Filtering Tests** (`tools/jira/field_filtering.rs`):
+- `test_default_search_fields_count` - Verify 17 default fields
+- `test_default_fields_no_description` - Verify description exclusion
+- `test_default_fields_no_id` - Verify id exclusion
+- `test_resolve_priority_1_api_fields` - API parameter priority
+- `test_resolve_priority_2_env_override` - Environment variable override
+- `test_resolve_priority_3_defaults_with_custom` - Defaults + custom fields
+- `test_resolve_priority_4_defaults_only` - Built-in defaults only
+- `test_resolve_empty_api_fields_fallback` - Empty array handling
+- `test_new_fields_included` - Verify new fields (duedate, labels, etc.)
+
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run specific module
+cargo test config::tests
+cargo test field_filtering::tests
+```
+
+### Manual Protocol Testing
 
 ```bash
 # Test initialize
@@ -674,45 +749,6 @@ pub const INTERNAL_ERROR: i32 = -32603;
 3. Unknown method → `-32601`
 4. Missing params → `-32602`
 5. Tool execution error → `-32603`
-
----
-
-## Known Limitations
-
-### No Performance Benchmarks
-
-- No `criterion` benchmarks implemented
-- Performance metrics are estimates only
-- `cargo bench` not configured
-
-### Limited Test Coverage
-
-- Only config validation tests
-- No integration tests
-- No mock Atlassian API responses
-
-### No Response Size Measurements
-
-- Field filtering implemented
-- Actual payload reduction not measured
-- "89%" claim is theoretical
-
----
-
-## Future Roadmap
-
-### Testing
-- [ ] Integration tests with mockito
-- [ ] Performance benchmarks with criterion
-- [ ] 80%+ code coverage
-- [ ] Fuzz testing for JSON parsing
-
-### Features
-- [ ] Attachment upload/download
-- [ ] Bulk operations
-- [ ] Rate limiting
-- [ ] Response caching
-- [ ] Webhook support
 
 ---
 

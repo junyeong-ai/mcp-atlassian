@@ -6,7 +6,6 @@ use crate::tools::ToolHandler;
 use crate::utils::http_utils::{create_atlassian_client, create_auth_header};
 
 pub mod field_filtering;
-use field_filtering::apply_field_filtering;
 
 // Handlers for each Jira tool
 pub struct GetIssueHandler;
@@ -23,12 +22,6 @@ impl ToolHandler for GetIssueHandler {
         let issue_key = args["issue_key"].as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
 
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
         let base_url = format!(
             "{}/rest/api/3/issue/{}",
@@ -36,7 +29,7 @@ impl ToolHandler for GetIssueHandler {
             issue_key
         );
 
-        let url = apply_field_filtering(&base_url, include_all_fields, additional_fields);
+        let url = field_filtering::apply_field_filtering_to_url(&base_url);
 
         let response = client
             .get(&url)
@@ -62,7 +55,13 @@ impl ToolHandler for SearchHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
         let jql = args["jql"].as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing jql"))?;
-        let limit = args["limit"].as_u64().unwrap_or(10);
+        let limit = args["limit"].as_u64().unwrap_or(20);
+
+        // Extract fields parameter from API call
+        let api_fields = args["fields"].as_array()
+            .map(|arr| arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect());
 
         // Apply project filter if configured and not already in JQL
         let final_jql = if !config.jira_projects_filter.is_empty() {
@@ -84,40 +83,21 @@ impl ToolHandler for SearchHandler {
             jql.to_string()
         };
 
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
         let base_url = config.get_atlassian_base_url();
-        let url = format!(
-            "{}/rest/api/3/search/jql",
-            base_url
-        );
+        let url = format!("{}/rest/api/3/search/jql", base_url);
 
-        tracing::debug!("Jira search URL (before filtering): {}", url);
+        // Resolve fields using priority hierarchy
+        let fields = field_filtering::resolve_search_fields(api_fields, config);
 
-        // Build query with field filtering
-        let mut query_params = vec![
+        let query_params = vec![
             ("jql".to_string(), final_jql),
             ("maxResults".to_string(), limit.to_string()),
+            ("fields".to_string(), fields.join(",")),
+            ("expand".to_string(), "-renderedFields".to_string()),
         ];
 
-        // Add field filtering if not requesting all fields
-        if !include_all_fields.unwrap_or(false) {
-            let mut field_config = field_filtering::FieldConfiguration::from_env();
-            if let Some(additional) = additional_fields {
-                field_config = field_config.with_additional_fields(additional);
-            }
-            let selector = field_filtering::FieldSelector::from_config(&field_config);
-            if let Some(fields) = selector.to_query_param() {
-                query_params.push(("fields".to_string(), fields));
-                // Exclude heavy data like renderedFields to minimize response size
-                query_params.push(("expand".to_string(), "-renderedFields".to_string()));
-            }
-        }
+        tracing::debug!("Jira search with {} fields: {}", fields.len(), fields.join(","));
 
         let response = client
             .get(&url)
@@ -144,19 +124,13 @@ impl ToolHandler for SearchHandler {
 #[async_trait]
 impl ToolHandler for CreateIssueHandler {
     async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
         let base_url = format!(
             "{}/rest/api/3/issue",
             config.get_atlassian_base_url()
         );
 
-        let url = apply_field_filtering(&base_url, include_all_fields, additional_fields);
+        let url = field_filtering::apply_field_filtering_to_url(&base_url);
 
         let body = json!({
             "fields": {
@@ -208,20 +182,12 @@ impl ToolHandler for UpdateIssueHandler {
         let issue_key = args["issue_key"].as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
 
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
-        let base_url = format!(
+        let url = format!(
             "{}/rest/api/3/issue/{}",
             config.get_atlassian_base_url(),
             issue_key
         );
-
-        let url = apply_field_filtering(&base_url, include_all_fields, additional_fields);
 
         let response = client
             .put(&url)
@@ -252,12 +218,6 @@ impl ToolHandler for AddCommentHandler {
         let comment = args["comment"].as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing comment"))?;
 
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
         let base_url = format!(
             "{}/rest/api/3/issue/{}/comment",
@@ -265,7 +225,7 @@ impl ToolHandler for AddCommentHandler {
             issue_key
         );
 
-        let url = apply_field_filtering(&base_url, include_all_fields, additional_fields);
+        let url = field_filtering::apply_field_filtering_to_url(&base_url);
 
         let body = json!({
             "body": {
@@ -309,20 +269,12 @@ impl ToolHandler for TransitionIssueHandler {
         let transition_id = args["transition_id"].as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing transition_id"))?;
 
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
-        let base_url = format!(
+        let url = format!(
             "{}/rest/api/3/issue/{}/transitions",
             config.get_atlassian_base_url(),
             issue_key
         );
-
-        let url = apply_field_filtering(&base_url, include_all_fields, additional_fields);
 
         let body = json!({
             "transition": {
@@ -355,12 +307,6 @@ impl ToolHandler for GetTransitionsHandler {
         let issue_key = args["issue_key"].as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
 
-        let include_all_fields = args["include_all_fields"].as_bool();
-        let additional_fields = args["additional_fields"].as_array()
-            .map(|arr| arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect());
-
         let client = create_atlassian_client(config);
         let base_url = format!(
             "{}/rest/api/3/issue/{}/transitions",
@@ -368,7 +314,7 @@ impl ToolHandler for GetTransitionsHandler {
             issue_key
         );
 
-        let url = apply_field_filtering(&base_url, include_all_fields, additional_fields);
+        let url = field_filtering::apply_field_filtering_to_url(&base_url);
 
         let response = client
             .get(&url)

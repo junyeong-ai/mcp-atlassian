@@ -92,7 +92,19 @@ impl RequestHandler {
             "jira_search" => {
                 let mut props = HashMap::new();
                 props.insert("jql".to_string(), Self::create_string_prop("JQL query. Must include search condition before ORDER BY (e.g., 'project = KEY ORDER BY created DESC'). ORDER BY only works with orderable fields (dates, versions).", true));
-                props.insert("limit".to_string(), Self::create_number_prop("Max results", 10));
+                props.insert("limit".to_string(), Self::create_number_prop("Maximum results (default: 20)", 20));
+                props.insert("fields".to_string(), Property {
+                    property_type: "array".to_string(),
+                    description: Some(
+                        "Optional: Array of field names to return. If not specified, returns 17 optimized default fields. \
+                        To minimize tokens, specify only needed fields (e.g., [\"key\",\"summary\",\"status\",\"assignee\"]). \
+                        \n\nDefault fields (17): key, summary, status, priority, issuetype, assignee, reporter, creator, \
+                        created, updated, duedate, resolutiondate, project, labels, components, parent, subtasks. \
+                        \n\nCustom fields: Add via array (e.g., [\"customfield_10015\"]) or set JIRA_SEARCH_CUSTOM_FIELDS env var.".to_string()
+                    ),
+                    default: None,
+                    enum_values: None,
+                });
                 ("Search Jira issues using JQL", props, vec!["jql".to_string()])
             }
             "jira_create_issue" => {

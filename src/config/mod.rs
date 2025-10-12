@@ -9,7 +9,6 @@ pub struct Config {
     pub atlassian_email: String,
     pub atlassian_api_token: String,
 
-
     // Performance
     pub max_connections: usize,
     pub request_timeout_ms: u64,
@@ -17,6 +16,10 @@ pub struct Config {
     // Project/Space Filtering
     pub jira_projects_filter: Vec<String>,
     pub confluence_spaces_filter: Vec<String>,
+
+    // Jira Search Field Configuration
+    pub jira_search_default_fields: Option<Vec<String>>,
+    pub jira_search_custom_fields: Vec<String>,
 }
 
 impl Config {
@@ -29,13 +32,37 @@ impl Config {
 
         tracing::debug!("Loaded ATLASSIAN_DOMAIN: {}", domain);
 
+        // Parse Jira search field configuration
+        let jira_search_default_fields: Option<Vec<String>> = env::var("JIRA_SEARCH_DEFAULT_FIELDS")
+            .ok()
+            .map(|s| {
+                s.split(',')
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.trim().to_string())
+                    .collect()
+            });
+
+        let jira_search_custom_fields: Vec<String> = env::var("JIRA_SEARCH_CUSTOM_FIELDS")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        if let Some(ref fields) = jira_search_default_fields {
+            tracing::info!("Using custom default fields from JIRA_SEARCH_DEFAULT_FIELDS: {} fields", fields.len());
+        }
+
+        if !jira_search_custom_fields.is_empty() {
+            tracing::info!("Adding {} custom fields from JIRA_SEARCH_CUSTOM_FIELDS", jira_search_custom_fields.len());
+        }
+
         Ok(Self {
             atlassian_domain: domain,
             atlassian_email: env::var("ATLASSIAN_EMAIL")
                 .context("ATLASSIAN_EMAIL environment variable not set")?,
             atlassian_api_token: env::var("ATLASSIAN_API_TOKEN")
                 .context("ATLASSIAN_API_TOKEN environment variable not set")?,
-
 
             max_connections: env::var("MAX_CONNECTIONS")
                 .unwrap_or_else(|_| "100".to_string())
@@ -58,6 +85,9 @@ impl Config {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.trim().to_string())
                 .collect(),
+
+            jira_search_default_fields,
+            jira_search_custom_fields,
         })
     }
 
@@ -126,6 +156,8 @@ mod tests {
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
         };
 
         assert!(config.validate().is_ok());
@@ -141,6 +173,8 @@ mod tests {
             request_timeout_ms: 30000,
             jira_projects_filter: vec![],
             confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
         };
 
         assert!(config.validate().is_err());

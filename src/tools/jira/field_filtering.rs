@@ -228,4 +228,92 @@ mod tests {
         assert!(result.contains(&"parent".to_string()));
         assert!(result.contains(&"subtasks".to_string()));
     }
+
+    // T025: Additional field filtering tests
+    #[test]
+    fn test_essential_fields_count() {
+        assert_eq!(ESSENTIAL_FIELDS.len(), 11);
+    }
+
+    #[test]
+    fn test_essential_fields_contains_description() {
+        assert!(ESSENTIAL_FIELDS.contains(&"description"));
+    }
+
+    #[test]
+    fn test_essential_fields_has_key_fields() {
+        assert!(ESSENTIAL_FIELDS.contains(&"key"));
+        assert!(ESSENTIAL_FIELDS.contains(&"summary"));
+        assert!(ESSENTIAL_FIELDS.contains(&"status"));
+        assert!(ESSENTIAL_FIELDS.contains(&"priority"));
+    }
+
+    #[test]
+    fn test_apply_field_filtering_to_url_without_query_params() {
+        let base_url = "https://test.atlassian.net/rest/api/3/issue/TEST-123";
+        let result = apply_field_filtering_to_url(base_url);
+
+        // Should add ? before fields
+        assert!(result.contains("?fields="));
+        // Should include expand parameter
+        assert!(result.contains("&expand=-renderedFields"));
+        // Should contain essential fields
+        assert!(result.contains("key,summary,description"));
+    }
+
+    #[test]
+    fn test_apply_field_filtering_to_url_with_query_params() {
+        let base_url = "https://test.atlassian.net/rest/api/3/issue/TEST-123?foo=bar";
+        let result = apply_field_filtering_to_url(base_url);
+
+        // Should add & before fields (not ?)
+        assert!(result.contains("&fields="));
+        assert!(!result.contains("?fields="));
+        // Should still have expand parameter
+        assert!(result.contains("&expand=-renderedFields"));
+        // Original param should be preserved
+        assert!(result.contains("foo=bar"));
+    }
+
+    #[test]
+    fn test_apply_field_filtering_url_structure() {
+        let base_url = "https://test.atlassian.net/rest/api/3/issue/TEST-123";
+        let result = apply_field_filtering_to_url(base_url);
+
+        // Verify URL structure
+        assert!(result.starts_with(base_url));
+        assert_eq!(result.matches('?').count(), 1); // Exactly one ?
+        assert_eq!(result.matches("&expand=-renderedFields").count(), 1); // Expand at end
+    }
+
+    #[test]
+    fn test_default_search_fields_includes_all_categories() {
+        let config = create_test_config(None, vec![]);
+        let result = resolve_search_fields(None, &config);
+
+        // Identification
+        assert!(result.contains(&"key".to_string()));
+
+        // Core Metadata
+        assert!(result.contains(&"summary".to_string()));
+        assert!(result.contains(&"status".to_string()));
+        assert!(result.contains(&"priority".to_string()));
+        assert!(result.contains(&"issuetype".to_string()));
+
+        // People
+        assert!(result.contains(&"assignee".to_string()));
+        assert!(result.contains(&"reporter".to_string()));
+        assert!(result.contains(&"creator".to_string()));
+
+        // Dates
+        assert!(result.contains(&"created".to_string()));
+        assert!(result.contains(&"updated".to_string()));
+
+        // Classification
+        assert!(result.contains(&"project".to_string()));
+
+        // Hierarchy
+        assert!(result.contains(&"parent".to_string()));
+        assert!(result.contains(&"subtasks".to_string()));
+    }
 }

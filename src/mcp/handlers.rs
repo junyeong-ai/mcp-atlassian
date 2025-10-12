@@ -371,3 +371,176 @@ impl RequestHandler {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn create_test_config() -> Config {
+        Config {
+            atlassian_domain: "test.atlassian.net".to_string(),
+            atlassian_email: "test@example.com".to_string(),
+            atlassian_api_token: "test-token".to_string(),
+            max_connections: 100,
+            request_timeout_ms: 30000,
+            jira_projects_filter: vec![],
+            confluence_spaces_filter: vec![],
+            jira_search_default_fields: None,
+            jira_search_custom_fields: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_request_handler_creation() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await;
+        assert!(handler.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_list_tools_returns_13_tools() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+        assert_eq!(tools.len(), 13);
+    }
+
+    #[tokio::test]
+    async fn test_list_tools_has_jira_tools() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+
+        let jira_tools: Vec<_> = tools
+            .iter()
+            .filter(|t| t.name.starts_with("jira_"))
+            .collect();
+        assert_eq!(jira_tools.len(), 7);
+
+        // Verify specific Jira tools exist
+        assert!(tools.iter().any(|t| t.name == "jira_get_issue"));
+        assert!(tools.iter().any(|t| t.name == "jira_search"));
+        assert!(tools.iter().any(|t| t.name == "jira_create_issue"));
+    }
+
+    #[tokio::test]
+    async fn test_list_tools_has_confluence_tools() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+
+        let confluence_tools: Vec<_> = tools
+            .iter()
+            .filter(|t| t.name.starts_with("confluence_"))
+            .collect();
+        assert_eq!(confluence_tools.len(), 6);
+
+        // Verify specific Confluence tools exist
+        assert!(tools.iter().any(|t| t.name == "confluence_search"));
+        assert!(tools.iter().any(|t| t.name == "confluence_get_page"));
+        assert!(tools.iter().any(|t| t.name == "confluence_create_page"));
+    }
+
+    #[tokio::test]
+    async fn test_tool_schema_structure() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+
+        for tool in tools {
+            // Every tool must have a name
+            assert!(!tool.name.is_empty());
+
+            // Every tool must have a description
+            assert!(!tool.description.is_empty());
+
+            // Schema must be "object" type
+            assert_eq!(tool.input_schema.schema_type, "object");
+
+            // Must have properties
+            assert!(!tool.input_schema.properties.is_empty());
+
+            // Required fields must exist in properties
+            for required_field in &tool.input_schema.required {
+                assert!(
+                    tool.input_schema.properties.contains_key(required_field),
+                    "Tool {} missing required property: {}",
+                    tool.name,
+                    required_field
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_jira_search_schema_includes_fields_description() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+
+        let jira_search = tools.iter().find(|t| t.name == "jira_search").unwrap();
+
+        // Verify jql is required
+        assert!(jira_search.input_schema.required.contains(&"jql".to_string()));
+
+        // Verify fields parameter has description about default fields
+        let fields_prop = jira_search
+            .input_schema
+            .properties
+            .get("fields")
+            .unwrap();
+        assert!(fields_prop.description.is_some());
+        let desc = fields_prop.description.as_ref().unwrap();
+        assert!(desc.contains("17 default fields")); // Based on DEFAULT_SEARCH_FIELDS count
+    }
+
+    #[tokio::test]
+    async fn test_jira_get_issue_schema() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+
+        let tool = tools.iter().find(|t| t.name == "jira_get_issue").unwrap();
+
+        assert_eq!(tool.description, "Get Jira issue by key");
+        assert!(tool.input_schema.required.contains(&"issue_key".to_string()));
+        assert!(tool.input_schema.properties.contains_key("issue_key"));
+    }
+
+    #[tokio::test]
+    async fn test_confluence_create_page_schema() {
+        let config = Arc::new(create_test_config());
+        let handler = RequestHandler::new(config).await.unwrap();
+        let tools = handler.list_tools().await;
+
+        let tool = tools
+            .iter()
+            .find(|t| t.name == "confluence_create_page")
+            .unwrap();
+
+        assert_eq!(tool.description, "Create Confluence page");
+        assert!(tool.input_schema.required.contains(&"space_key".to_string()));
+        assert!(tool.input_schema.required.contains(&"title".to_string()));
+        assert!(tool.input_schema.required.contains(&"content".to_string()));
+        assert!(!tool.input_schema.required.contains(&"parent_id".to_string())); // Optional
+    }
+
+    #[tokio::test]
+    async fn test_create_string_prop() {
+        let prop = RequestHandler::create_string_prop("Test description", true);
+        assert_eq!(prop.property_type, "string");
+        assert_eq!(prop.description, Some("Test description".to_string()));
+        assert!(prop.default.is_none());
+        assert!(prop.enum_values.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_create_number_prop() {
+        let prop = RequestHandler::create_number_prop("Test number", 42);
+        assert_eq!(prop.property_type, "number");
+        assert_eq!(prop.description, Some("Test number".to_string()));
+        assert_eq!(prop.default, Some(json!(42)));
+        assert!(prop.enum_values.is_none());
+    }
+}

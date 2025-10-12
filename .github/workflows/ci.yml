@@ -2,86 +2,40 @@ name: CI
 
 on:
   push:
-    branches: [main, 001-*]
+    branches: [main]
   pull_request:
     branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: 1.90.0
-          components: rustfmt, clippy
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache target directory
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-target-lint-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run rustfmt
-        run: cargo fmt -- --check
-
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
   test:
-    name: Test
+    name: Test Suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rust: [1.90.0]
+        rust: [stable]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
 
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
 
-      - name: Cache target directory
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-target-test-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run tests
-        run: cargo test --all-features --workspace
+      - name: Run tests with nextest
+        run: cargo nextest run --all-features --workspace --verbose
 
   coverage:
     name: Code Coverage
@@ -89,44 +43,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.90.0
+          components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Install coverage tools
+        uses: taiki-e/install-action@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          tool: cargo-llvm-cov,nextest
 
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Generate coverage with nextest
+        run: |
+          cargo llvm-cov nextest \
+            --all-features \
+            --workspace \
+            --lcov \
+            --output-path lcov.info \
+            --fail-under-lines 50
 
-      - name: Cache target directory
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-target-coverage-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --codecov --output-path codecov.json
-
-      - name: Upload coverage to Codecov
+      - name: Upload to Codecov
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: codecov.json
+          files: lcov.info
           fail_ci_if_error: true
-          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
-          name: codecov-umbrella
+          name: codecov-mcp-atlassian
+          verbose: true
+
+      - name: Generate HTML coverage report
+        if: always()
+        run: cargo llvm-cov report --html
+
+      - name: Upload HTML report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: target/llvm-cov/html/
+          retention-days: 7
 
   build:
     name: Build Release
@@ -134,33 +93,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: 1.90.0
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache target directory
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-target-build-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --verbose
 
       - name: Check binary size
         run: |
           ls -lh target/release/mcp-atlassian
-          echo "Binary size: $(du -h target/release/mcp-atlassian | cut -f1)"
+          du -h target/release/mcp-atlassian
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-binary
+          path: target/release/mcp-atlassian
+          retention-days: 7
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run cargo-audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

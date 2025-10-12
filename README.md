@@ -5,11 +5,13 @@
 Model Context Protocol (MCP) server that connects AI assistants to Atlassian Cloud, providing 13 tools for Jira and Confluence operations.
 
 [![CI](https://github.com/junyeong-ai/mcp-atlassian/workflows/CI/badge.svg)](https://github.com/junyeong-ai/mcp-atlassian/actions)
+[![Lint](https://github.com/junyeong-ai/mcp-atlassian/workflows/Lint/badge.svg)](https://github.com/junyeong-ai/mcp-atlassian/actions)
 [![codecov](https://codecov.io/gh/junyeong-ai/mcp-atlassian/branch/main/graph/badge.svg)](https://codecov.io/gh/junyeong-ai/mcp-atlassian)
-[![Rust](https://img.shields.io/badge/rust-1.90%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.90%2B%20(2024%20edition)-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05%20%7C%202025--06--18-blue?style=flat-square)](https://modelcontextprotocol.io)
-[![Tools](https://img.shields.io/badge/tools-13-blue?style=flat-square)](#features)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/junyeong-ai/mcp-atlassian/releases)
+[![Tools](https://img.shields.io/badge/MCP%20tools-13-blue?style=flat-square)](#features)
 [![Tests](https://img.shields.io/badge/tests-135%20passing-success?style=flat-square)](#testing)
 
 ---

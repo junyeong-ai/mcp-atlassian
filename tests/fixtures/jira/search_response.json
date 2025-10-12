@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "description": "Jira search response for testing",
+    "source": "Documented API structure",
+    "captured": "2025-10-12"
+  },
+  "total": 2,
+  "startAt": 0,
+  "maxResults": 20,
+  "issues": [
+    {
+      "key": "TEST-123",
+      "fields": {
+        "summary": "Test issue 1",
+        "status": {"name": "Open"},
+        "priority": {"name": "High"},
+        "issuetype": {"name": "Bug"}
+      }
+    },
+    {
+      "key": "TEST-124",
+      "fields": {
+        "summary": "Test issue 2",
+        "status": {"name": "In Progress"},
+        "priority": {"name": "Medium"},
+        "issuetype": {"name": "Task"}
+      }
+    }
+  ]
+}

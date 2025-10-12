@@ -1,0 +1,13 @@
+{
+  "results": [
+    {
+      "content": {
+        "id": "12345",
+        "type": "page",
+        "title": "Test Page"
+      }
+    }
+  ],
+  "size": 1,
+  "totalSize": 1
+}

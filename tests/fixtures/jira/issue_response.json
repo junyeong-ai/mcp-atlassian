@@ -1,0 +1,12 @@
+{
+  "key": "TEST-123",
+  "fields": {
+    "summary": "Test issue",
+    "description": "Test description",
+    "status": {"name": "Open"},
+    "priority": {"name": "High"},
+    "issuetype": {"name": "Bug"},
+    "assignee": {"displayName": "Test User"},
+    "reporter": {"displayName": "Test Reporter"}
+  }
+}

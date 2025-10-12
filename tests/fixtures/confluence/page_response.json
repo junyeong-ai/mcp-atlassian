@@ -1,0 +1,15 @@
+{
+  "id": "12345",
+  "status": "current",
+  "title": "Test Page",
+  "spaceId": "67890",
+  "body": {
+    "storage": {
+      "value": "<p>Test content</p>",
+      "representation": "storage"
+    }
+  },
+  "version": {
+    "number": 1
+  }
+}

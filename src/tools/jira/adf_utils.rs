@@ -633,7 +633,12 @@ mod tests {
 
         let result = validate_adf(&adf);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("version must be 1"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("version must be 1")
+        );
     }
 
     #[test]
@@ -647,7 +652,12 @@ mod tests {
 
         let result = validate_adf(&adf);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("version must be 1"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("version must be 1")
+        );
     }
 
     // Edge case tests: large text handling
@@ -698,11 +708,7 @@ mod tests {
         println!("Average 10KB text conversion time: {:.3}ms", avg_ms);
 
         // Should be very fast (< 1ms per conversion)
-        assert!(
-            avg_ms < 1.0,
-            "Text conversion too slow: {}ms > 1ms",
-            avg_ms
-        );
+        assert!(avg_ms < 1.0, "Text conversion too slow: {}ms > 1ms", avg_ms);
     }
 
     // Edge case tests: deeply nested structures
@@ -915,6 +921,9 @@ mod tests {
         });
 
         let result = validate_adf(&adf);
-        assert!(result.is_ok(), "Document with 150 paragraphs should be valid");
+        assert!(
+            result.is_ok(),
+            "Document with 150 paragraphs should be valid"
+        );
     }
 }

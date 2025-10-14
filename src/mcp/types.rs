@@ -107,7 +107,7 @@ pub struct ToolInputSchema {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Property {
     #[serde(rename = "type")]
-    pub property_type: String,
+    pub property_type: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,7 +366,7 @@ mod tests {
         properties.insert(
             "query".to_string(),
             Property {
-                property_type: "string".to_string(),
+                property_type: json!("string"),
                 description: Some("Search query".to_string()),
                 default: None,
                 enum_values: None,
@@ -446,13 +446,13 @@ mod tests {
     #[test]
     fn test_property_with_enum() {
         let property = Property {
-            property_type: "string".to_string(),
+            property_type: json!("string"),
             description: Some("Status field".to_string()),
             default: None,
             enum_values: Some(vec![json!("Open"), json!("In Progress"), json!("Closed")]),
         };
 
-        assert_eq!(property.property_type, "string");
+        assert_eq!(property.property_type, json!("string"));
         assert_eq!(property.enum_values.as_ref().unwrap().len(), 3);
     }
 }

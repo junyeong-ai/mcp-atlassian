@@ -1,5 +1,5 @@
 use anyhow::Result;
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -117,7 +117,7 @@ impl RequestHandler {
 
     fn create_string_prop(description: &str, _required: bool) -> Property {
         Property {
-            property_type: "string".to_string(),
+            property_type: json!("string"),
             description: Some(description.to_string()),
             default: None,
             enum_values: None,
@@ -126,9 +126,18 @@ impl RequestHandler {
 
     fn create_number_prop(description: &str, default: i32) -> Property {
         Property {
-            property_type: "number".to_string(),
+            property_type: json!("number"),
             description: Some(description.to_string()),
             default: Some(Value::Number(default.into())),
+            enum_values: None,
+        }
+    }
+
+    fn create_union_prop(description: &str, types: Vec<&str>) -> Property {
+        Property {
+            property_type: json!(types),
+            description: Some(description.to_string()),
+            default: None,
             enum_values: None,
         }
     }
@@ -164,7 +173,7 @@ impl RequestHandler {
                     Self::create_number_prop("Maximum results (default: 20)", 20),
                 );
                 props.insert("fields".to_string(), Property {
-                    property_type: "array".to_string(),
+                    property_type: json!("array"),
                     description: Some(format!(
                         "Optional: Array of field names to return. If not specified, returns {} default fields: {}\n\n\
                         To minimize tokens, specify only the fields you need (e.g., [\"key\",\"summary\",\"status\",\"assignee\"]).",
@@ -198,12 +207,10 @@ impl RequestHandler {
                 );
                 props.insert(
                     "description".to_string(),
-                    Property {
-                        property_type: String::new(), // Empty type = flexible (allows string or object)
-                        description: Some("Issue description - accepts plain text (string, auto-converted to ADF) or ADF object".to_string()),
-                        default: None,
-                        enum_values: None,
-                    },
+                    Self::create_union_prop(
+                        "Issue description - accepts plain text (string, auto-converted to ADF) or ADF object",
+                        vec!["string", "object"],
+                    ),
                 );
                 (
                     "Create Jira issue",
@@ -222,7 +229,7 @@ impl RequestHandler {
                     Self::create_string_prop("Issue key", true),
                 );
                 props.insert("fields".to_string(), Property {
-                    property_type: "object".to_string(),
+                    property_type: json!("object"),
                     description: Some("Fields to update as JSON object (e.g., {\"summary\": \"New title\"}). Custom fields use 'customfield_*' format. The 'description' field accepts plain text (auto-converted to ADF) or ADF object.".to_string()),
                     default: None,
                     enum_values: None,
@@ -241,12 +248,10 @@ impl RequestHandler {
                 );
                 props.insert(
                     "comment".to_string(),
-                    Property {
-                        property_type: String::new(), // Empty type = flexible (allows string or object)
-                        description: Some("Comment text - accepts plain text (string, auto-converted to ADF) or ADF object".to_string()),
-                        default: None,
-                        enum_values: None,
-                    },
+                    Self::create_union_prop(
+                        "Comment text - accepts plain text (string, auto-converted to ADF) or ADF object",
+                        vec!["string", "object"],
+                    ),
                 );
                 (
                     "Add comment to Jira issue",
@@ -269,12 +274,10 @@ impl RequestHandler {
                 );
                 props.insert(
                     "body".to_string(),
-                    Property {
-                        property_type: String::new(), // Empty type = flexible (allows string or object)
-                        description: Some("Comment body - accepts plain text (string, auto-converted to ADF) or ADF object".to_string()),
-                        default: None,
-                        enum_values: None,
-                    },
+                    Self::create_union_prop(
+                        "Comment body - accepts plain text (string, auto-converted to ADF) or ADF object",
+                        vec!["string", "object"],
+                    ),
                 );
                 (
                     "Update an existing comment on a Jira issue with rich text formatting (ADF)",

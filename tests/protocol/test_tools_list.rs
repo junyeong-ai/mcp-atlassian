@@ -62,7 +62,7 @@ fn test_tool_input_schema_structure() {
     properties.insert(
         "jql".to_string(),
         mcp_atlassian::mcp::types::Property {
-            property_type: "string".to_string(),
+            property_type: json!("string"),
             description: Some("JQL query string".to_string()),
             default: None,
             enum_values: None,

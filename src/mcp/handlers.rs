@@ -37,6 +37,10 @@ impl RequestHandler {
             Arc::new(jira::AddCommentHandler),
         );
         tools.insert(
+            "jira_update_comment".to_string(),
+            Arc::new(jira::UpdateCommentHandler),
+        );
+        tools.insert(
             "jira_transition_issue".to_string(),
             Arc::new(jira::TransitionIssueHandler),
         );
@@ -237,6 +241,30 @@ impl RequestHandler {
                     vec!["issue_key".to_string(), "comment".to_string()],
                 )
             }
+            "jira_update_comment" => {
+                let mut props = HashMap::new();
+                props.insert(
+                    "issue_key".to_string(),
+                    Self::create_string_prop("Issue key (e.g., 'PROJ-123')", true),
+                );
+                props.insert(
+                    "comment_id".to_string(),
+                    Self::create_string_prop(
+                        "Comment ID to update (obtained from comment object's 'id' field)",
+                        true,
+                    ),
+                );
+                props.insert("body".to_string(), Self::create_string_prop("Updated comment body - accepts plain text (auto-converted to ADF) or full ADF object", true));
+                (
+                    "Update an existing comment on a Jira issue with rich text formatting (ADF)",
+                    props,
+                    vec![
+                        "issue_key".to_string(),
+                        "comment_id".to_string(),
+                        "body".to_string(),
+                    ],
+                )
+            }
             "jira_transition_issue" => {
                 let mut props = HashMap::new();
                 props.insert(
@@ -398,11 +426,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_tools_returns_13_tools() {
+    async fn test_list_tools_returns_14_tools() {
         let config = Arc::new(create_test_config());
         let handler = RequestHandler::new(config).await.unwrap();
         let tools = handler.list_tools().await;
-        assert_eq!(tools.len(), 13);
+        assert_eq!(tools.len(), 14);
     }
 
     #[tokio::test]
@@ -415,12 +443,13 @@ mod tests {
             .iter()
             .filter(|t| t.name.starts_with("jira_"))
             .collect();
-        assert_eq!(jira_tools.len(), 7);
+        assert_eq!(jira_tools.len(), 8);
 
         // Verify specific Jira tools exist
         assert!(tools.iter().any(|t| t.name == "jira_get_issue"));
         assert!(tools.iter().any(|t| t.name == "jira_search"));
         assert!(tools.iter().any(|t| t.name == "jira_create_issue"));
+        assert!(tools.iter().any(|t| t.name == "jira_update_comment"));
     }
 
     #[tokio::test]

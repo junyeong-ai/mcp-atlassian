@@ -198,7 +198,12 @@ impl RequestHandler {
                 );
                 props.insert(
                     "description".to_string(),
-                    Self::create_string_prop("Issue description", false),
+                    Property {
+                        property_type: String::new(), // Empty type = flexible (allows string or object)
+                        description: Some("Issue description - accepts plain text (string, auto-converted to ADF) or ADF object".to_string()),
+                        default: None,
+                        enum_values: None,
+                    },
                 );
                 (
                     "Create Jira issue",
@@ -218,7 +223,7 @@ impl RequestHandler {
                 );
                 props.insert("fields".to_string(), Property {
                     property_type: "object".to_string(),
-                    description: Some("Fields to update as JSON object (e.g., {\"summary\": \"New title\"}). Custom fields use 'customfield_*' format.".to_string()),
+                    description: Some("Fields to update as JSON object (e.g., {\"summary\": \"New title\"}). Custom fields use 'customfield_*' format. The 'description' field accepts plain text (auto-converted to ADF) or ADF object.".to_string()),
                     default: None,
                     enum_values: None,
                 });
@@ -234,7 +239,15 @@ impl RequestHandler {
                     "issue_key".to_string(),
                     Self::create_string_prop("Issue key", true),
                 );
-                props.insert("comment".to_string(), Self::create_string_prop("Comment text (plain text). Automatically converted to Atlassian Document Format.", true));
+                props.insert(
+                    "comment".to_string(),
+                    Property {
+                        property_type: String::new(), // Empty type = flexible (allows string or object)
+                        description: Some("Comment text - accepts plain text (string, auto-converted to ADF) or ADF object".to_string()),
+                        default: None,
+                        enum_values: None,
+                    },
+                );
                 (
                     "Add comment to Jira issue",
                     props,
@@ -254,7 +267,15 @@ impl RequestHandler {
                         true,
                     ),
                 );
-                props.insert("body".to_string(), Self::create_string_prop("Updated comment body - accepts plain text (auto-converted to ADF) or full ADF object", true));
+                props.insert(
+                    "body".to_string(),
+                    Property {
+                        property_type: String::new(), // Empty type = flexible (allows string or object)
+                        description: Some("Comment body - accepts plain text (string, auto-converted to ADF) or ADF object".to_string()),
+                        default: None,
+                        enum_values: None,
+                    },
+                );
                 (
                     "Update an existing comment on a Jira issue with rich text formatting (ADF)",
                     props,
@@ -372,7 +393,7 @@ impl RequestHandler {
                 );
                 props.insert(
                     "content".to_string(),
-                    Self::create_string_prop("Page content", true),
+                    Self::create_string_prop("Page content in HTML storage format", true),
                 );
                 props.insert("version_number".to_string(), Self::create_number_prop("Version number (optional). Current version is automatically retrieved and incremented.", 1));
                 (

@@ -19,11 +19,7 @@ pub fn create_auth_header(config: &Config) -> String {
 mod tests {
     use super::*;
 
-    fn create_test_config(
-        email: &str,
-        token: &str,
-        timeout_ms: u64,
-    ) -> Config {
+    fn create_test_config(email: &str, token: &str, timeout_ms: u64) -> Config {
         Config {
             atlassian_domain: "test.atlassian.net".to_string(),
             atlassian_email: email.to_string(),

@@ -7,7 +7,7 @@ Rust 기반 **4.4MB 바이너리**로 **응답 최적화**와 **빠른 실행 �
 
 [![CI](https://github.com/junyeong-ai/mcp-atlassian/workflows/CI/badge.svg)](https://github.com/junyeong-ai/mcp-atlassian/actions)
 [![codecov](https://codecov.io/gh/junyeong-ai/mcp-atlassian/branch/main/graph/badge.svg)](https://codecov.io/gh/junyeong-ai/mcp-atlassian)
-[![Tools](https://img.shields.io/badge/MCP%20tools-13-blue?style=flat-square)](#🔧-13개-mcp-도구)
+[![Tools](https://img.shields.io/badge/MCP%20tools-14-blue?style=flat-square)](#🔧-14개-mcp-도구)
 [![Rust](https://img.shields.io/badge/rust-1.90%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05%20%7C%202025--06--18-blue?style=flat-square)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -38,6 +38,12 @@ Rust 기반 **4.4MB 바이너리**로 **응답 최적화**와 **빠른 실행 �
 
 AI Agent가 Atlassian을 사용할 때 **최적화된 경험**을 제공합니다:
 
+### ✨ ADF로 리치 텍스트 포맷팅
+- **Atlassian Document Format 지원**: 포맷이 적용된 설명과 댓글 작성
+- **자동 변환**: 일반 텍스트가 자동으로 ADF로 변환
+- **지원 포맷**: 제목, 코드 블록, 목록, 굵게, 기울임, 인라인 코드
+- **ADF 지원 4개 도구**: `jira_create_issue`, `jira_update_issue`, `jira_add_comment`, `jira_update_comment`
+
 ### ⚡ AI Agent를 위한 응답 최적화
 - **Jira 검색 필드 최적화**: 17개 핵심 필드만 반환 (description 제외)
   ```
@@ -53,13 +59,14 @@ AI Agent가 Atlassian을 사용할 때 **최적화된 경험**을 제공합니�
 - **즉시 실행**: 네이티브 바이너리로 빠른 시작
 - **낮은 리소스**: Rust의 메모리 효율성
 
-### 🔧 13개 MCP 도구
-**Jira (7개)**:
+### 🔧 14개 MCP 도구
+**Jira (8개)** - 4개 도구에 ADF 지원:
 - `jira_search` - JQL 검색 (최적화된 필드)
 - `jira_get_issue` - 이슈 상세 조회
-- `jira_create_issue` - 이슈 생성
-- `jira_update_issue` - 이슈 수정
-- `jira_add_comment` - 댓글 추가
+- `jira_create_issue` ✨ - 이슈 생성 (ADF 지원)
+- `jira_update_issue` ✨ - 이슈 수정 (ADF 지원)
+- `jira_add_comment` ✨ - 댓글 추가 (ADF 지원)
+- `jira_update_comment` ✨ - 댓글 수정 (ADF 지원)
 - `jira_transition_issue` - 상태 전환
 - `jira_get_transitions` - 가능한 전환 조회
 
@@ -81,6 +88,7 @@ AI Agent가 Atlassian을 사용할 때 **최적화된 경험**을 제공합니�
 ## 💬 AI Agent 활용 예시
 
 ### Claude Desktop에서
+
 ```
 사용자: "이번 주 생성된 버그 목록 보여줘"
 → AI Agent가 jira_search 도구 자동 호출
@@ -88,7 +96,11 @@ AI Agent가 Atlassian을 사용할 때 **최적화된 경험**을 제공합니�
 
 사용자: "PROJ-123에 코드 리뷰 완료 댓글 달아줘"
 → AI Agent가 jira_add_comment 도구 호출
-→ Atlassian Document Format 자동 변환
+→ 일반 텍스트가 자동으로 ADF로 변환
+
+사용자: "댓글 10042를 '승인됨'으로 수정해줘"
+→ AI Agent가 jira_update_comment 도구 호출
+→ 포맷팅 지원과 함께 댓글 수정
 
 사용자: "프로젝트 README 페이지 만들어줘"
 → AI Agent가 confluence_create_page 도구 호출
@@ -332,7 +344,8 @@ src/
 ├── tools/
 │   ├── handler.rs            # ToolHandler trait
 │   ├── jira/
-│   │   ├── mod.rs            # 7개 Jira 도구
+│   │   ├── mod.rs            # 8개 Jira 도구
+│   │   ├── adf_utils.rs      # ADF 검증 & 변환
 │   │   └── field_filtering.rs # 필드 최적화
 │   └── confluence/
 │       ├── mod.rs            # 6개 Confluence 도구

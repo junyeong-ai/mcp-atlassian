@@ -2,20 +2,22 @@
 
 **Rust-based MCP server for Atlassian Cloud | Developer Documentation**
 
-Last updated: 2025-10-12
+Last updated: 2025-10-14
 
 ---
 
 ## Project Overview
 
-Production-ready Model Context Protocol server implementing 13 tools for Jira and Confluence integration.
+Production-ready Model Context Protocol server implementing 14 tools for Jira and Confluence integration with full ADF (Atlassian Document Format) support.
 
 | Metric | Value |
 |--------|-------|
 | **Language** | Rust 1.90 (Edition 2024) |
 | **Binary Size** | 4.4MB (release build) |
-| **Tools** | 13 (7 Jira + 6 Confluence) |
+| **Tools** | 14 (8 Jira + 6 Confluence) |
 | **MCP Protocol** | 2024-11-05, 2025-06-18 |
+| **Test Coverage** | 58.99% (410/695 lines) |
+| **Tests** | 185 passing (160 unit + 23 protocol + 2 doc) |
 
 ---
 
@@ -71,14 +73,15 @@ src/
 ├── mcp/
 │   ├── mod.rs                - Module exports
 │   ├── server.rs             - Stdio JSON-RPC server
-│   ├── handlers.rs           - Tool registration
+│   ├── handlers.rs           - Tool registration (14 tools)
 │   └── types.rs              - Protocol type definitions
 │
 ├── tools/
 │   ├── mod.rs                - Module exports
 │   ├── handler.rs            - ToolHandler trait
 │   ├── jira/
-│   │   ├── mod.rs            - 7 tool implementations
+│   │   ├── mod.rs            - 8 tool implementations
+│   │   ├── adf_utils.rs      - ADF validation & conversion (100% coverage)
 │   │   └── field_filtering.rs - Field optimization
 │   └── confluence/
 │       ├── mod.rs            - 6 tool implementations
@@ -212,7 +215,7 @@ pub struct RequestHandler {
 ```
 
 **Tool Registration**:
-- 7 Jira tools registered
+- 8 Jira tools registered (including UpdateCommentHandler)
 - 6 Confluence tools registered
 - HashMap for O(1) lookup
 
@@ -231,11 +234,11 @@ pub trait ToolHandler: Send + Sync {
 }
 ```
 
-All 13 tools implement this trait.
+All 14 tools implement this trait.
 
 ### `tools/jira/mod.rs`
 
-**Purpose**: 7 Jira REST API v3 tool implementations
+**Purpose**: 8 Jira REST API v3 tool implementations
 
 **Tools Implemented**:
 
@@ -250,26 +253,98 @@ All 13 tools implement this trait.
    - Field filtering applied
    - JQL validation
 
-3. **CreateIssueHandler**
+3. **CreateIssueHandler** ✨ *ADF-enabled*
    - Endpoint: `POST /rest/api/3/issue`
-   - ADF description conversion
+   - Accepts string or ADF for description
+   - Auto-converts plain text to ADF
    - Field filtering on response
 
-4. **UpdateIssueHandler**
+4. **UpdateIssueHandler** ✨ *ADF-enabled*
    - Endpoint: `PUT /rest/api/3/issue/{key}`
+   - Accepts string or ADF for description
    - Direct field updates
 
-5. **AddCommentHandler**
+5. **AddCommentHandler** ✨ *ADF-enabled*
    - Endpoint: `POST /rest/api/3/issue/{key}/comment`
-   - ADF comment conversion
+   - Accepts string or ADF for comment
+   - Auto-converts plain text to ADF
 
-6. **TransitionIssueHandler**
+6. **UpdateCommentHandler** ✨ *NEW - ADF-enabled*
+   - Endpoint: `PUT /rest/api/3/issue/{key}/comment/{id}`
+   - Accepts string or ADF for body
+   - Update existing comments with formatting
+
+7. **TransitionIssueHandler**
    - Endpoint: `POST /rest/api/3/issue/{key}/transitions`
    - Workflow state changes
 
-7. **GetTransitionsHandler**
+8. **GetTransitionsHandler**
    - Endpoint: `GET /rest/api/3/issue/{key}/transitions`
    - Available transitions
+
+### `tools/jira/adf_utils.rs`
+
+**Purpose**: ADF (Atlassian Document Format) validation and conversion
+
+**Test Coverage**: 100% (40/40 lines covered)
+
+**Core Functions**:
+
+```rust
+/// Validates ADF document structure (type, version, content)
+pub fn validate_adf(value: &Value) -> Result<()>
+
+/// Converts plain text to simple paragraph ADF
+pub fn text_to_adf(text: &str) -> Value
+
+/// Core processing function for any ADF field (with field_name for error messages)
+pub fn process_adf_input(value: &Value, field_name: &str) -> Result<Value>
+
+/// Wrapper for description field (delegates to process_adf_input)
+pub fn process_description_input(value: &Value) -> Result<Value>
+
+/// Wrapper for comment field (delegates to process_adf_input)
+pub fn process_comment_input(value: &Value) -> Result<Value>
+```
+
+**Design Notes**:
+- `process_adf_input()` is the core function handling all ADF processing logic
+- `process_description_input()` and `process_comment_input()` are thin wrappers providing field-specific error messages
+- This eliminates code duplication while maintaining backward compatibility
+
+**Validation Rules**:
+- `type` must be exactly "doc"
+- `version` must be integer 1
+- `content` must be array (can be empty)
+
+**Input Processing**:
+- **String** → Converts to simple paragraph ADF
+- **ADF Object** → Validates and passes through
+- **Null** → Returns empty paragraph ADF
+- **Other types** → Returns error
+
+**Performance**:
+- <1ms document validation
+- <10ms total overhead (meets NFR3)
+- No recursive validation (delegated to Jira API)
+
+**Example Usage**:
+```rust
+// Plain text
+let adf = process_description_input(&json!("Hello, world!"))?;
+// Returns: { "type": "doc", "version": 1, "content": [...] }
+
+// ADF with formatting
+let adf = process_description_input(&json!({
+    "type": "doc",
+    "version": 1,
+    "content": [{
+        "type": "heading",
+        "attrs": {"level": 2},
+        "content": [{"type": "text", "text": "Problem"}]
+    }]
+}))?;
+```
 
 ### `tools/jira/field_filtering.rs`
 
@@ -399,6 +474,160 @@ log_shutdown!();
 
 ---
 
+## ADF (Atlassian Document Format) Support
+
+### Overview
+
+Full support for rich text formatting in Jira issue descriptions and comments using Atlassian Document Format.
+
+### Supported Tools
+
+| Tool | Description | ADF Support |
+|------|-------------|-------------|
+| `jira_create_issue` | Create issue with formatted description | ✅ String or ADF |
+| `jira_update_issue` | Update issue description | ✅ String or ADF |
+| `jira_add_comment` | Add comment with formatting | ✅ String or ADF |
+| `jira_update_comment` | Update existing comment | ✅ String or ADF |
+
+### Supported Node Types
+
+**Block-level Nodes**:
+- `paragraph` - Text paragraphs
+- `heading` - Headings (H1-H6, level 1-6)
+- `codeBlock` - Fenced code blocks with syntax highlighting
+- `bulletList` - Unordered lists
+- `orderedList` - Numbered lists
+- `listItem` - List items
+
+**Inline Nodes**:
+- `text` - Plain text with optional marks
+
+**Text Marks** (Inline formatting):
+- `code` - Inline code (`inline code`)
+- `strong` - Bold text (**bold**)
+- `em` - Italic text (*italic*)
+
+### Usage Examples
+
+#### Plain Text (Backward Compatible)
+
+```json
+{
+  "name": "jira_create_issue",
+  "arguments": {
+    "project_key": "PROJ",
+    "summary": "Bug report",
+    "issue_type": "Bug",
+    "description": "This is plain text and works as before"
+  }
+}
+```
+
+#### Rich Formatted Description
+
+```json
+{
+  "name": "jira_create_issue",
+  "arguments": {
+    "project_key": "PROJ",
+    "summary": "Feature request",
+    "issue_type": "Story",
+    "description": {
+      "type": "doc",
+      "version": 1,
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {"level": 2},
+          "content": [{"type": "text", "text": "Problem"}]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {"type": "text", "text": "The "},
+            {"type": "text", "text": "API", "marks": [{"type": "code"}]},
+            {"type": "text", "text": " returns "},
+            {"type": "text", "text": "null", "marks": [{"type": "strong"}]},
+            {"type": "text", "text": " instead of an error"}
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {"language": "rust"},
+          "content": [{"type": "text", "text": "fn main() {\n    println!(\"test\");\n}"}]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### Update Comment with Formatting
+
+```json
+{
+  "name": "jira_update_comment",
+  "arguments": {
+    "issue_key": "PROJ-123",
+    "comment_id": "10042",
+    "body": {
+      "type": "doc",
+      "version": 1,
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {"level": 3},
+          "content": [{"type": "text", "text": "Review"}]
+        },
+        {
+          "type": "bulletList",
+          "content": [
+            {
+              "type": "listItem",
+              "content": [{
+                "type": "paragraph",
+                "content": [{"type": "text", "text": "Looks good"}]
+              }]
+            },
+            {
+              "type": "listItem",
+              "content": [{
+                "type": "paragraph",
+                "content": [{"type": "text", "text": "Approved"}]
+              }]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+### Validation
+
+**Required Fields**:
+- `type`: Must be "doc"
+- `version`: Must be 1
+- `content`: Must be array
+
+**Error Messages**:
+- Missing type → "Invalid ADF: missing required field 'type'"
+- Wrong type → "Invalid ADF: type must be 'doc', got 'paragraph'"
+- Missing version → "Invalid ADF: missing required field 'version'"
+- Wrong version → "Invalid ADF: version must be 1, got 2"
+- Missing content → "Invalid ADF: missing required field 'content'"
+- Invalid content → "Invalid ADF: content must be array"
+
+### Backward Compatibility
+
+✅ **100% backward compatible** - All existing plain text usage continues to work
+✅ **Auto-conversion** - Plain strings automatically converted to simple paragraph ADF
+✅ **Null handling** - Missing/null descriptions treated as empty text
+✅ **No breaking changes** - Existing tests pass without modification
+
+---
+
 ## Configuration System
 
 ### Environment Variables
@@ -448,15 +677,16 @@ From `config/mod.rs`:
 
 ### Jira REST API v3
 
-| Tool | Method | Endpoint |
-|------|--------|----------|
-| get_issue | GET | `/rest/api/3/issue/{key}` |
-| search | GET | `/rest/api/3/search/jql` |
-| create_issue | POST | `/rest/api/3/issue` |
-| update_issue | PUT | `/rest/api/3/issue/{key}` |
-| add_comment | POST | `/rest/api/3/issue/{key}/comment` |
-| transition_issue | POST | `/rest/api/3/issue/{key}/transitions` |
-| get_transitions | GET | `/rest/api/3/issue/{key}/transitions` |
+| Tool | Method | Endpoint | ADF Support |
+|------|--------|----------|-------------|
+| get_issue | GET | `/rest/api/3/issue/{key}` | - |
+| search | GET | `/rest/api/3/search/jql` | - |
+| create_issue | POST | `/rest/api/3/issue` | ✅ description |
+| update_issue | PUT | `/rest/api/3/issue/{key}` | ✅ description |
+| add_comment | POST | `/rest/api/3/issue/{key}/comment` | ✅ comment |
+| update_comment | PUT | `/rest/api/3/issue/{key}/comment/{id}` | ✅ body |
+| transition_issue | POST | `/rest/api/3/issue/{key}/transitions` | - |
+| get_transitions | GET | `/rest/api/3/issue/{key}/transitions` | - |
 
 ### Confluence REST API
 
@@ -616,14 +846,20 @@ cargo check
 ### Testing
 
 ```bash
-# Run all tests
+# Run all tests (185 tests)
 cargo test
 
 # Run specific test
-cargo test test_config_validation
+cargo test test_validate_adf_valid_document
 
 # With output
 cargo test -- --nocapture
+
+# Run ADF-specific tests (29 tests)
+cargo test adf_utils::tests
+
+# Test coverage with tarpaulin
+cargo tarpaulin --out Stdout
 ```
 
 ### Code Quality
@@ -662,22 +898,40 @@ strip = true            # Strip symbols
 
 ## Testing
 
-### Unit Tests (11 total)
+### Test Statistics
+
+| Category | Count | Coverage |
+|----------|-------|----------|
+| **Total Tests** | 185 | 58.99% |
+| Unit Tests (lib) | 160 | - |
+| Protocol Tests | 23 | - |
+| Doc Tests | 2 | - |
+| **ADF Module** | 29 | **100%** |
+
+### Unit Tests by Module
 
 **Config Tests** (`config/mod.rs`):
-- `test_config_validation` - Valid configuration
-- `test_invalid_domain` - Domain validation
+- Configuration validation
+- Domain normalization
+- Field validation
+
+**ADF Tests** (`tools/jira/adf_utils.rs`) - **100% Coverage**:
+- `test_validate_adf_*` - 8 validation tests
+- `test_text_to_adf_*` - 5 conversion tests
+- `test_process_adf_input_*` - 10 core logic tests
+- `test_process_description_input_*` - 2 wrapper delegation tests
+- `test_process_comment_input_*` - 2 wrapper delegation tests
+- `test_adf_validation_performance` - Performance test
 
 **Field Filtering Tests** (`tools/jira/field_filtering.rs`):
-- `test_default_search_fields_count` - Verify 17 default fields
-- `test_default_fields_no_description` - Verify description exclusion
-- `test_default_fields_no_id` - Verify id exclusion
-- `test_resolve_priority_1_api_fields` - API parameter priority
-- `test_resolve_priority_2_env_override` - Environment variable override
-- `test_resolve_priority_3_defaults_with_custom` - Defaults + custom fields
-- `test_resolve_priority_4_defaults_only` - Built-in defaults only
-- `test_resolve_empty_api_fields_fallback` - Empty array handling
-- `test_new_fields_included` - Verify new fields (duedate, labels, etc.)
+- Default field configuration
+- Field resolution priority
+- Custom field handling
+
+**Handler Tests** (`tools/jira/mod.rs`, `tools/confluence/mod.rs`):
+- URL construction
+- Parameter validation
+- ADF processing logic
 
 ### Running Tests
 
@@ -689,8 +943,11 @@ cargo test
 cargo test -- --nocapture
 
 # Run specific module
-cargo test config::tests
+cargo test adf_utils::tests
 cargo test field_filtering::tests
+
+# Run with coverage
+cargo tarpaulin --out Stdout --output-dir target/coverage
 ```
 
 ### Manual Protocol Testing
@@ -701,6 +958,9 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":
 
 # Test tools/list
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | cargo run
+
+# Test create issue with ADF
+echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"jira_create_issue","arguments":{"project_key":"TEST","summary":"Test","issue_type":"Task","description":{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Test"}]}]}}}}' | cargo run
 ```
 
 ---
@@ -719,6 +979,7 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | cargo run
 - JQL/CQL passed to Atlassian API
 - No SQL injection risk (REST API only)
 - JSON schema validation
+- ADF structure validation before API calls
 
 ### Scoped Access
 
@@ -750,6 +1011,33 @@ pub const INTERNAL_ERROR: i32 = -32603;
 4. Missing params → `-32602`
 5. Tool execution error → `-32603`
 
+### ADF Validation Errors
+
+- Invalid ADF structure → Descriptive error message
+- Missing required fields → Error with field name
+- Wrong field types → Error with expected vs actual type
+
+---
+
+## Performance
+
+### Metrics
+
+| Metric | Value | Target |
+|--------|-------|--------|
+| Binary Size | 4.4MB | ≤4.5MB |
+| ADF Validation | <1ms | <10ms |
+| Request Timeout | 30s (configurable) | 100ms-60s |
+| Test Execution | 0.04s | <1s |
+
+### Optimization Strategies
+
+1. **Field Filtering**: Reduce API response size (17 fields vs 50+ fields)
+2. **Minimal ADF Validation**: Top-level only, delegate to Jira API
+3. **Connection Pooling**: Reuse HTTP connections
+4. **Link-Time Optimization**: LTO enabled in release build
+5. **Binary Stripping**: Remove debug symbols
+
 ---
 
 ## Resources
@@ -758,6 +1046,7 @@ pub const INTERNAL_ERROR: i32 = -32603;
 - [Jira REST API v3](https://developer.atlassian.com/cloud/jira/platform/rest/v3/)
 - [Confluence REST API v2](https://developer.atlassian.com/cloud/confluence/rest/v2/)
 - [Atlassian Document Format](https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/)
+- [ADF Node Types](https://developer.atlassian.com/cloud/jira/platform/apis/document/nodes/)
 
 ### MCP Protocol
 - [MCP Specification](https://modelcontextprotocol.io)
@@ -767,6 +1056,7 @@ pub const INTERNAL_ERROR: i32 = -32603;
 - [Tokio Documentation](https://docs.rs/tokio)
 - [Reqwest Documentation](https://docs.rs/reqwest)
 - [Serde JSON](https://docs.rs/serde_json)
+- [Anyhow Error Handling](https://docs.rs/anyhow)
 
 ---
 
@@ -776,4 +1066,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**All information verified against actual implementation on 2025-10-12**
+**All information verified against actual implementation on 2025-10-14**

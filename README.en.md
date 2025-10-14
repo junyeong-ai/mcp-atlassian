@@ -7,7 +7,7 @@ Built with Rust, delivering **4.4MB binary** with **optimized responses** and **
 
 [![CI](https://github.com/junyeong-ai/mcp-atlassian/workflows/CI/badge.svg)](https://github.com/junyeong-ai/mcp-atlassian/actions)
 [![codecov](https://codecov.io/gh/junyeong-ai/mcp-atlassian/branch/main/graph/badge.svg)](https://codecov.io/gh/junyeong-ai/mcp-atlassian)
-[![Tools](https://img.shields.io/badge/MCP%20tools-13-blue?style=flat-square)](#🔧-13-mcp-tools)
+[![Tools](https://img.shields.io/badge/MCP%20tools-14-blue?style=flat-square)](#🔧-14-mcp-tools)
 [![Rust](https://img.shields.io/badge/rust-1.90%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05%20%7C%202025--06--18-blue?style=flat-square)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -38,6 +38,12 @@ Built with Rust, delivering **4.4MB binary** with **optimized responses** and **
 
 Provides **optimized experience** for AI Agents using Atlassian:
 
+### ✨ Rich Text Formatting with ADF
+- **Atlassian Document Format Support**: Create formatted descriptions and comments
+- **Auto-conversion**: Plain text automatically converts to ADF
+- **Supported Formatting**: Headings, code blocks, lists, bold, italic, inline code
+- **4 Tools with ADF**: `jira_create_issue`, `jira_update_issue`, `jira_add_comment`, `jira_update_comment`
+
 ### ⚡ Response Optimization for AI Agents
 - **Jira Search Field Optimization**: Returns only 17 essential fields (excludes description)
   ```
@@ -53,13 +59,14 @@ Provides **optimized experience** for AI Agents using Atlassian:
 - **Instant Execution**: Native binary with fast startup
 - **Low Resource**: Rust's memory efficiency
 
-### 🔧 13 MCP Tools
-**Jira (7 tools)**:
+### 🔧 14 MCP Tools
+**Jira (8 tools)** - 4 with ADF support:
 - `jira_search` - JQL search (optimized fields)
 - `jira_get_issue` - Get issue details
-- `jira_create_issue` - Create issue
-- `jira_update_issue` - Update issue
-- `jira_add_comment` - Add comment
+- `jira_create_issue` ✨ - Create issue (ADF support)
+- `jira_update_issue` ✨ - Update issue (ADF support)
+- `jira_add_comment` ✨ - Add comment (ADF support)
+- `jira_update_comment` ✨ - Update comment (ADF support)
 - `jira_transition_issue` - Transition status
 - `jira_get_transitions` - Get available transitions
 
@@ -88,7 +95,11 @@ User: "Show me bugs created this week"
 
 User: "Add a code review completed comment to PROJ-123"
 → AI Agent calls jira_add_comment tool
-→ Auto-converts to Atlassian Document Format
+→ Plain text auto-converts to ADF (Atlassian Document Format)
+
+User: "Update comment 10042 to say 'Approved'"
+→ AI Agent calls jira_update_comment tool
+→ Comment updated with formatting support
 
 User: "Create a project README page"
 → AI Agent calls confluence_create_page tool
@@ -332,7 +343,8 @@ src/
 ├── tools/
 │   ├── handler.rs            # ToolHandler trait
 │   ├── jira/
-│   │   ├── mod.rs            # 7 Jira tools
+│   │   ├── mod.rs            # 8 Jira tools
+│   │   ├── adf_utils.rs      # ADF validation & conversion
 │   │   └── field_filtering.rs # Field optimization
 │   └── confluence/
 │       ├── mod.rs            # 6 Confluence tools

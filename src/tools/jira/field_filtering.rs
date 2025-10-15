@@ -119,6 +119,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: default_fields,
             jira_search_custom_fields: custom_fields,
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         }
     }
 

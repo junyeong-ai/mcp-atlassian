@@ -56,15 +56,15 @@ impl FieldConfiguration {
         }
     }
 
-    /// Override to include additional parameters for a specific request
-    pub fn with_additional_includes(&self, additional: Vec<String>) -> Self {
-        let mut config = self.clone();
+    /// Override to include additional parameters for a specific request.
+    /// Consumes self and returns a modified configuration (builder pattern).
+    pub fn with_additional_includes(mut self, additional: Vec<String>) -> Self {
         for param in additional {
-            if !config.custom_includes.contains(&param) {
-                config.custom_includes.push(param);
+            if !self.custom_includes.contains(&param) {
+                self.custom_includes.push(param);
             }
         }
-        config
+        self
     }
 
     /// Get query parameters as a vector of tuples for v2 API

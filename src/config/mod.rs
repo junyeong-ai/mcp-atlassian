@@ -19,6 +19,13 @@ pub struct Config {
     // Jira Search Field Configuration
     pub jira_search_default_fields: Option<Vec<String>>,
     pub jira_search_custom_fields: Vec<String>,
+
+    // Response Optimization Configuration
+    pub response_exclude_fields: Option<Vec<String>>,
+
+    // Cached normalized base URL (not deserialized, computed at init)
+    #[serde(skip)]
+    pub(crate) base_url: String,
 }
 
 impl Config {
@@ -61,6 +68,31 @@ impl Config {
             );
         }
 
+        // Parse response optimization configuration
+        let response_exclude_fields: Option<Vec<String>> =
+            env::var("RESPONSE_EXCLUDE_FIELDS").ok().map(|s| {
+                s.split(',')
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.trim().to_string())
+                    .collect()
+            });
+
+        if let Some(ref fields) = response_exclude_fields {
+            tracing::info!(
+                "Using custom response exclude fields: {} fields",
+                fields.len()
+            );
+        }
+
+        // Normalize base URL once at initialization
+        let base_url = if domain.starts_with("https://") {
+            domain.clone()
+        } else if domain.starts_with("http://") {
+            domain.replace("http://", "https://")
+        } else {
+            format!("https://{}", domain)
+        };
+
         Ok(Self {
             atlassian_domain: domain,
             atlassian_email: env::var("ATLASSIAN_EMAIL")
@@ -88,6 +120,8 @@ impl Config {
 
             jira_search_default_fields,
             jira_search_custom_fields,
+            response_exclude_fields,
+            base_url,
         })
     }
 
@@ -124,16 +158,11 @@ impl Config {
         Ok(())
     }
 
-    pub fn get_atlassian_base_url(&self) -> String {
-        // If domain already starts with https://, don't add it again
-        if self.atlassian_domain.starts_with("https://") {
-            self.atlassian_domain.clone()
-        } else if self.atlassian_domain.starts_with("http://") {
-            // Replace http with https
-            self.atlassian_domain.replace("http://", "https://")
-        } else {
-            format!("https://{}", self.atlassian_domain)
-        }
+    /// Returns the normalized Atlassian base URL.
+    /// This is a zero-cost operation as the URL is pre-computed during initialization.
+    #[inline]
+    pub fn get_atlassian_base_url(&self) -> &str {
+        &self.base_url
     }
 }
 
@@ -153,6 +182,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_ok());
@@ -169,6 +200,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         let url = config.get_atlassian_base_url();
@@ -187,6 +220,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         let url = config.get_atlassian_base_url();
@@ -206,6 +241,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://invalid-domain".to_string(),
         };
 
         assert!(config.validate().is_err());
@@ -222,6 +259,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_err());
@@ -238,6 +277,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_err());
@@ -254,6 +295,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_err());
@@ -271,6 +314,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         let url = config.get_atlassian_base_url();
@@ -289,6 +334,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_err());
@@ -305,6 +352,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_ok());
@@ -323,6 +372,8 @@ mod tests {
             confluence_spaces_filter: vec!["SPACE1".to_string(), "SPACE2".to_string()],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_ok());
@@ -344,6 +395,8 @@ mod tests {
                 "customfield_10015".to_string(),
                 "customfield_10016".to_string(),
             ],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_ok());
@@ -370,6 +423,8 @@ mod tests {
                 "status".to_string(),
             ]),
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_ok());
@@ -388,6 +443,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         };
 
         assert!(config.validate().is_ok());

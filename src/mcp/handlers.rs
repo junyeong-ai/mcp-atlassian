@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::tools::ToolHandler;
+use crate::tools::response_optimizer::ResponseOptimizer;
 use crate::tools::{confluence, jira};
 
 use super::types::{CallToolResult, Property, Tool as McpTool, ToolContent, ToolInputSchema};
@@ -12,6 +13,7 @@ use super::types::{CallToolResult, Property, Tool as McpTool, ToolContent, ToolI
 pub struct RequestHandler {
     tools: HashMap<String, Arc<dyn ToolHandler>>,
     config: Arc<Config>,
+    optimizer: Arc<ResponseOptimizer>,
 }
 
 impl RequestHandler {
@@ -75,7 +77,14 @@ impl RequestHandler {
             Arc::new(confluence::UpdatePageHandler),
         );
 
-        Ok(Self { tools, config })
+        // Create response optimizer for field removal
+        let optimizer = Arc::new(ResponseOptimizer::from_config(&config));
+
+        Ok(Self {
+            tools,
+            config,
+            optimizer,
+        })
     }
 
     pub async fn list_tools(&self) -> Vec<McpTool> {
@@ -99,7 +108,35 @@ impl RequestHandler {
             .get(name)
             .ok_or_else(|| anyhow::anyhow!("Tool not found: {}", name))?;
 
-        let result = tool.execute(arguments, config).await?;
+        let mut result = tool.execute(arguments, config).await?;
+
+        // Apply response optimization for GET operations only
+        // CREATE/UPDATE operations already return minimal responses (Phase 3)
+        let is_get_operation = matches!(
+            name,
+            "jira_get_issue"
+                | "jira_search"
+                | "jira_get_transitions"
+                | "confluence_search"
+                | "confluence_get_page"
+                | "confluence_get_page_children"
+                | "confluence_get_comments"
+        );
+
+        if is_get_operation {
+            match self.optimizer.optimize(&mut result) {
+                Ok(()) => {
+                    tracing::debug!(tool = name, "Response optimization applied successfully");
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        tool = name,
+                        error = %e,
+                        "Response optimization failed, returning unoptimized response"
+                    );
+                }
+            }
+        }
 
         // Convert result to tool content
         let content = if let Some(text) = result.as_str() {
@@ -439,6 +476,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         }
     }
 

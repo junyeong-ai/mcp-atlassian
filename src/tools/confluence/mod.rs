@@ -299,7 +299,8 @@ impl ToolHandler for CreatePageHandler {
         let data: Value = response.json().await?;
         Ok(json!({
             "success": true,
-            "page": data
+            "page_id": data["id"],
+            "title": data["title"]
         }))
     }
 }
@@ -388,7 +389,8 @@ impl ToolHandler for UpdatePageHandler {
         let data: Value = response.json().await?;
         Ok(json!({
             "success": true,
-            "page": data
+            "page_id": data["id"],
+            "version": data["version"]["number"]
         }))
     }
 }
@@ -409,6 +411,8 @@ mod tests {
             confluence_spaces_filter,
             jira_search_default_fields: None,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         }
     }
 

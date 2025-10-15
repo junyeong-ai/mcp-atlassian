@@ -84,11 +84,11 @@ pub fn text_to_adf(text: &str) -> Value {
 ///
 /// Handles three input types:
 /// - String: Converts to simple paragraph ADF using text_to_adf
-/// - Object: Validates as ADF and returns clone
+/// - Object: Validates as ADF and returns it (zero-copy via move semantics)
 /// - Null: Returns empty paragraph ADF
 ///
 /// # Arguments
-/// * `value` - The input value to process
+/// * `value` - The input value to process (consumed)
 /// * `field_name` - Name of the field for error messages (e.g., "description", "comment")
 ///
 /// # Errors
@@ -102,24 +102,24 @@ pub fn text_to_adf(text: &str) -> Value {
 /// use mcp_atlassian::tools::jira::adf_utils::process_adf_input;
 ///
 /// // Plain text
-/// let adf = process_adf_input(&json!("Hello"), "description").unwrap();
+/// let adf = process_adf_input(json!("Hello"), "description").unwrap();
 /// assert_eq!(adf["type"], "doc");
 ///
 /// // ADF object
 /// let adf_obj = json!({"type": "doc", "version": 1, "content": []});
-/// let result = process_adf_input(&adf_obj, "comment").unwrap();
+/// let result = process_adf_input(adf_obj, "comment").unwrap();
 /// assert_eq!(result["type"], "doc");
 /// ```
-pub fn process_adf_input(value: &Value, field_name: &str) -> Result<Value> {
+pub fn process_adf_input(value: Value, field_name: &str) -> Result<Value> {
     match value {
         Value::String(text) => {
             // Plain text: convert to simple ADF
-            Ok(text_to_adf(text))
+            Ok(text_to_adf(&text))
         }
         Value::Object(_) => {
-            // ADF object: validate and return
-            validate_adf(value)?;
-            Ok(value.clone())
+            // ADF object: validate and return (zero-copy via move)
+            validate_adf(&value)?;
+            Ok(value)
         }
         Value::Null => {
             // Null/missing: return empty paragraph ADF
@@ -139,24 +139,24 @@ pub fn process_adf_input(value: &Value, field_name: &str) -> Result<Value> {
 /// Processes description input for create/update issue operations.
 ///
 /// Convenience wrapper around process_adf_input with field name "description".
-/// Maintains backward compatibility with existing code.
+/// Consumes the input value for zero-copy processing.
 ///
 /// # Errors
 /// Returns error if input is invalid (see process_adf_input for details)
 #[inline]
-pub fn process_description_input(value: &Value) -> Result<Value> {
+pub fn process_description_input(value: Value) -> Result<Value> {
     process_adf_input(value, "description")
 }
 
 /// Processes comment input for add/update comment operations.
 ///
 /// Convenience wrapper around process_adf_input with field name "comment".
-/// Maintains backward compatibility with existing code.
+/// Consumes the input value for zero-copy processing.
 ///
 /// # Errors
 /// Returns error if input is invalid (see process_adf_input for details)
 #[inline]
-pub fn process_comment_input(value: &Value) -> Result<Value> {
+pub fn process_comment_input(value: Value) -> Result<Value> {
     process_adf_input(value, "comment")
 }
 
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_string() {
         let input = json!("Plain text");
-        let result = process_adf_input(&input, "test_field").unwrap();
+        let result = process_adf_input(input, "test_field").unwrap();
 
         assert_eq!(result["type"], "doc");
         assert_eq!(result["version"], 1);
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_empty_string() {
         let input = json!("");
-        let result = process_adf_input(&input, "test_field").unwrap();
+        let result = process_adf_input(input, "test_field").unwrap();
 
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"][0]["content"][0]["text"], "");
@@ -390,7 +390,7 @@ mod tests {
             }]
         });
 
-        let result = process_adf_input(&input, "test_field").unwrap();
+        let result = process_adf_input(input, "test_field").unwrap();
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"][0]["type"], "heading");
         assert_eq!(result["content"][0]["attrs"]["level"], 2);
@@ -423,7 +423,7 @@ mod tests {
             ]
         });
 
-        let result = process_adf_input(&input, "test_field").unwrap();
+        let result = process_adf_input(input, "test_field").unwrap();
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"].as_array().unwrap().len(), 3);
         assert_eq!(result["content"][0]["type"], "heading");
@@ -434,7 +434,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_null() {
         let input = json!(null);
-        let result = process_adf_input(&input, "test_field").unwrap();
+        let result = process_adf_input(input, "test_field").unwrap();
 
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"][0]["content"][0]["text"], "");
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_invalid_type_number() {
         let input = json!(123);
-        let result = process_adf_input(&input, "test_field");
+        let result = process_adf_input(input, "test_field");
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_invalid_type_boolean() {
         let input = json!(true);
-        let result = process_adf_input(&input, "my_field");
+        let result = process_adf_input(input, "my_field");
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_invalid_type_array() {
         let input = json!(["not", "an", "adf"]);
-        let result = process_adf_input(&input, "custom_field");
+        let result = process_adf_input(input, "custom_field");
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -478,7 +478,7 @@ mod tests {
             "content": []
         });
 
-        let result = process_adf_input(&input, "test_field");
+        let result = process_adf_input(input, "test_field");
         assert!(result.is_err());
         assert!(
             result
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_process_adf_input_field_name_in_error() {
         let input = json!(123);
-        let result = process_adf_input(&input, "my_custom_field");
+        let result = process_adf_input(input, "my_custom_field");
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -507,7 +507,7 @@ mod tests {
     #[test]
     fn test_process_description_input_delegates_correctly() {
         let input = json!("Test description");
-        let result = process_description_input(&input).unwrap();
+        let result = process_description_input(input).unwrap();
 
         assert_eq!(result["type"], "doc");
         assert_eq!(
@@ -519,7 +519,7 @@ mod tests {
     #[test]
     fn test_process_description_input_error_includes_field_name() {
         let input = json!(123);
-        let result = process_description_input(&input);
+        let result = process_description_input(input);
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn test_process_comment_input_delegates_correctly() {
         let input = json!("Test comment");
-        let result = process_comment_input(&input).unwrap();
+        let result = process_comment_input(input).unwrap();
 
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"][0]["content"][0]["text"], "Test comment");
@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn test_process_comment_input_error_includes_field_name() {
         let input = json!(true);
-        let result = process_comment_input(&input);
+        let result = process_comment_input(input);
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -684,8 +684,8 @@ mod tests {
     fn test_process_adf_input_large_string() {
         // Test processing 100KB string doesn't panic
         let large_text = "Large description text. ".repeat(4_000); // ~100KB
-        let input = json!(large_text);
-        let result = process_adf_input(&input, "description").unwrap();
+        let input = json!(large_text.clone());
+        let result = process_adf_input(input, "description").unwrap();
 
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"][0]["content"][0]["text"], large_text);
@@ -783,7 +783,7 @@ mod tests {
             ]
         });
 
-        let result = process_adf_input(&input, "description").unwrap();
+        let result = process_adf_input(input, "description").unwrap();
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"].as_array().unwrap().len(), 2);
         assert_eq!(result["content"][0]["type"], "bulletList");
@@ -812,7 +812,7 @@ mod tests {
             }]
         });
 
-        let result = process_adf_input(&input, "description").unwrap();
+        let result = process_adf_input(input, "description").unwrap();
         assert_eq!(result["type"], "doc");
         assert_eq!(
             result["content"][0]["content"][0]["marks"]
@@ -898,7 +898,7 @@ mod tests {
             "content": []
         });
 
-        let result = process_adf_input(&input, "description").unwrap();
+        let result = process_adf_input(input, "description").unwrap();
         assert_eq!(result["type"], "doc");
         assert_eq!(result["content"].as_array().unwrap().len(), 0);
     }

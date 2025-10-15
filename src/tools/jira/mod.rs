@@ -136,14 +136,18 @@ impl ToolHandler for SearchHandler {
 
 #[async_trait]
 impl ToolHandler for CreateIssueHandler {
-    async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
+    async fn execute(&self, mut args: Value, config: &Config) -> Result<Value> {
         let client = create_atlassian_client(config);
         let base_url = format!("{}/rest/api/3/issue", config.get_atlassian_base_url());
 
         let url = field_filtering::apply_field_filtering_to_url(&base_url);
 
-        // Process description input - supports both string and ADF object
-        let description_adf = adf_utils::process_description_input(&args["description"])?;
+        // Process description input - supports both string and ADF object (zero-copy via take)
+        let description_value = args
+            .get_mut("description")
+            .map(|v| std::mem::replace(v, Value::Null))
+            .unwrap_or(Value::Null);
+        let description_adf = adf_utils::process_description_input(description_value)?;
 
         let body = json!({
             "fields": {
@@ -174,17 +178,19 @@ impl ToolHandler for CreateIssueHandler {
         let data: Value = response.json().await?;
         Ok(json!({
             "success": true,
-            "issue": data
+            "key": data["key"],
+            "id": data["id"]
         }))
     }
 }
 
 #[async_trait]
 impl ToolHandler for UpdateIssueHandler {
-    async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
+    async fn execute(&self, mut args: Value, config: &Config) -> Result<Value> {
         let issue_key = args["issue_key"]
             .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
+            .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?
+            .to_string();
 
         let client = create_atlassian_client(config);
         let url = format!(
@@ -193,11 +199,16 @@ impl ToolHandler for UpdateIssueHandler {
             issue_key
         );
 
-        // Process fields - handle description with ADF support if present
-        let mut fields = args["fields"].clone();
-        if let Some(description) = fields.get_mut("description") {
-            // Process description input - supports both string and ADF object
-            *description = adf_utils::process_description_input(description)?;
+        // Process fields - handle description with ADF support if present (zero-copy via take)
+        #[allow(clippy::collapsible_if)]
+        if let Some(fields) = args.get_mut("fields") {
+            if let Some(description_ref) = fields.get_mut("description") {
+                // Extract description value (zero-copy via mem::replace)
+                let description = std::mem::replace(description_ref, Value::Null);
+                // Process description input - supports both string and ADF object
+                let description_adf = adf_utils::process_description_input(description)?;
+                fields["description"] = description_adf;
+            }
         }
 
         let response = client
@@ -205,7 +216,7 @@ impl ToolHandler for UpdateIssueHandler {
             .header("Authorization", create_auth_header(config))
             .header("Content-Type", "application/json")
             .json(&json!({
-                "fields": fields
+                "fields": args["fields"]
             }))
             .send()
             .await?;
@@ -223,13 +234,18 @@ impl ToolHandler for UpdateIssueHandler {
 
 #[async_trait]
 impl ToolHandler for AddCommentHandler {
-    async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
+    async fn execute(&self, mut args: Value, config: &Config) -> Result<Value> {
         let issue_key = args["issue_key"]
             .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
+            .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?
+            .to_string();
 
-        // Process comment input - supports both string and ADF object
-        let comment_adf = adf_utils::process_comment_input(&args["comment"])?;
+        // Process comment input - supports both string and ADF object (zero-copy via take)
+        let comment_value = args
+            .get_mut("comment")
+            .map(|v| std::mem::replace(v, Value::Null))
+            .unwrap_or(Value::Null);
+        let comment_adf = adf_utils::process_comment_input(comment_value)?;
 
         let client = create_atlassian_client(config);
         let base_url = format!(
@@ -259,23 +275,29 @@ impl ToolHandler for AddCommentHandler {
         let data: Value = response.json().await?;
         Ok(json!({
             "success": true,
-            "comment": data
+            "comment_id": data["id"]
         }))
     }
 }
 
 #[async_trait]
 impl ToolHandler for UpdateCommentHandler {
-    async fn execute(&self, args: Value, config: &Config) -> Result<Value> {
+    async fn execute(&self, mut args: Value, config: &Config) -> Result<Value> {
         let issue_key = args["issue_key"]
             .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?;
+            .ok_or_else(|| anyhow::anyhow!("Missing issue_key"))?
+            .to_string();
         let comment_id = args["comment_id"]
             .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing comment_id"))?;
+            .ok_or_else(|| anyhow::anyhow!("Missing comment_id"))?
+            .to_string();
 
-        // Process comment body input - supports both string and ADF object
-        let body_adf = adf_utils::process_comment_input(&args["body"])?;
+        // Process comment body input - supports both string and ADF object (zero-copy via take)
+        let body_value = args
+            .get_mut("body")
+            .map(|v| std::mem::replace(v, Value::Null))
+            .unwrap_or(Value::Null);
+        let body_adf = adf_utils::process_comment_input(body_value)?;
 
         let client = create_atlassian_client(config);
         let base_url = format!(
@@ -307,7 +329,7 @@ impl ToolHandler for UpdateCommentHandler {
         let data: Value = response.json().await?;
         Ok(json!({
             "success": true,
-            "comment": data
+            "comment_id": data["id"]
         }))
     }
 }
@@ -408,6 +430,8 @@ mod tests {
             confluence_spaces_filter: vec![],
             jira_search_default_fields,
             jira_search_custom_fields: vec![],
+            response_exclude_fields: None,
+            base_url: "https://test.atlassian.net".to_string(),
         }
     }
 
@@ -774,7 +798,7 @@ mod tests {
         // In production, the API call would fail, but here we're testing the conversion logic
 
         // Verify comment processing works with null input (converted to empty ADF)
-        let comment_result = adf_utils::process_comment_input(&args["comment"]);
+        let comment_result = adf_utils::process_comment_input(args["comment"].clone());
         assert!(comment_result.is_ok());
         let comment_adf = comment_result.unwrap();
         assert_eq!(comment_adf["type"], "doc");

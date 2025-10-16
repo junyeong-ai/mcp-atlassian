@@ -68,25 +68,48 @@ impl ToolHandler for SearchHandler {
                 .collect()
         });
 
+        // Split JQL at ORDER BY to avoid placing ORDER BY inside parentheses
+        let jql_lower = jql.to_lowercase();
+        let (conditions, order_by) = if let Some(pos) = jql_lower.find(" order by ") {
+            // ORDER BY found in middle/end of JQL (includes leading space)
+            (jql[..pos].to_string(), Some(jql[pos..].to_string()))
+        } else if jql_lower.starts_with("order by ") {
+            // ORDER BY at start of JQL (add leading space for consistency)
+            (String::new(), Some(format!(" {}", jql)))
+        } else {
+            // No ORDER BY clause
+            (jql.to_string(), None)
+        };
+
         // Apply project filter if configured and not already in JQL
         let final_jql = if !config.jira_projects_filter.is_empty() {
-            let jql_lower = jql.to_lowercase();
+            let conditions_lower = conditions.to_lowercase();
             // Check if JQL already contains project condition
-            if jql_lower.contains("project ")
-                || jql_lower.contains("project=")
-                || jql_lower.contains("project in")
+            if conditions_lower.contains("project ")
+                || conditions_lower.contains("project=")
+                || conditions_lower.contains("project in")
             {
                 // User explicitly specified project, use their JQL as-is
                 jql.to_string()
             } else {
-                // Add project filter
+                // Add project filter and append ORDER BY at the end
                 let projects = config
                     .jira_projects_filter
                     .iter()
                     .map(|p| format!("\"{}\"", p))
                     .collect::<Vec<_>>()
                     .join(",");
-                format!("project IN ({}) AND ({})", projects, jql)
+                // Handle empty conditions (e.g., "ORDER BY created DESC" with no conditions)
+                let base = if conditions.trim().is_empty() {
+                    format!("project IN ({})", projects)
+                } else {
+                    format!("project IN ({}) AND ({})", projects, conditions.trim())
+                };
+                if let Some(ref order_clause) = order_by {
+                    format!("{}{}", base, order_clause)
+                } else {
+                    base
+                }
             }
         } else {
             jql.to_string()
@@ -99,18 +122,18 @@ impl ToolHandler for SearchHandler {
         // Resolve fields using priority hierarchy
         let fields = field_filtering::resolve_search_fields(api_fields, config);
 
+        tracing::info!(
+            "Jira search JQL: {}, {} fields: {}",
+            final_jql,
+            fields.len(),
+            fields.join(",")
+        );
+
         let query_params = vec![
             ("jql".to_string(), final_jql),
             ("maxResults".to_string(), limit.to_string()),
             ("fields".to_string(), fields.join(",")),
-            ("expand".to_string(), "-renderedFields".to_string()),
         ];
-
-        tracing::debug!(
-            "Jira search with {} fields: {}",
-            fields.len(),
-            fields.join(",")
-        );
 
         let response = client
             .get(&url)
@@ -492,12 +515,21 @@ mod tests {
         let config = create_test_config(vec!["PROJ1".to_string(), "PROJ2".to_string()], None);
         let jql = "status = Open";
 
-        // Simulate the project filter logic
+        // Simulate the project filter logic with ORDER BY handling
+        let jql_lower = jql.to_lowercase();
+        let (conditions, order_by) = if let Some(pos) = jql_lower.find(" order by ") {
+            (jql[..pos].to_string(), Some(jql[pos..].to_string()))
+        } else if jql_lower.starts_with("order by ") {
+            (String::new(), Some(format!(" {}", jql)))
+        } else {
+            (jql.to_string(), None)
+        };
+
         let final_jql = if !config.jira_projects_filter.is_empty() {
-            let jql_lower = jql.to_lowercase();
-            if jql_lower.contains("project ")
-                || jql_lower.contains("project=")
-                || jql_lower.contains("project in")
+            let conditions_lower = conditions.to_lowercase();
+            if conditions_lower.contains("project ")
+                || conditions_lower.contains("project=")
+                || conditions_lower.contains("project in")
             {
                 jql.to_string()
             } else {
@@ -507,7 +539,16 @@ mod tests {
                     .map(|p| format!("\"{}\"", p))
                     .collect::<Vec<_>>()
                     .join(",");
-                format!("project IN ({}) AND ({})", projects, jql)
+                let base = if conditions.trim().is_empty() {
+                    format!("project IN ({})", projects)
+                } else {
+                    format!("project IN ({}) AND ({})", projects, conditions.trim())
+                };
+                if let Some(ref order_clause) = order_by {
+                    format!("{}{}", base, order_clause)
+                } else {
+                    base
+                }
             }
         } else {
             jql.to_string()
@@ -525,12 +566,21 @@ mod tests {
         let config = create_test_config(vec!["PROJ1".to_string()], None);
         let jql = "project = MYPROJ AND status = Open";
 
-        // Simulate the project filter logic
+        // Simulate the project filter logic with ORDER BY handling
+        let jql_lower = jql.to_lowercase();
+        let (conditions, order_by) = if let Some(pos) = jql_lower.find(" order by ") {
+            (jql[..pos].to_string(), Some(jql[pos..].to_string()))
+        } else if jql_lower.starts_with("order by ") {
+            (String::new(), Some(format!(" {}", jql)))
+        } else {
+            (jql.to_string(), None)
+        };
+
         let final_jql = if !config.jira_projects_filter.is_empty() {
-            let jql_lower = jql.to_lowercase();
-            if jql_lower.contains("project ")
-                || jql_lower.contains("project=")
-                || jql_lower.contains("project in")
+            let conditions_lower = conditions.to_lowercase();
+            if conditions_lower.contains("project ")
+                || conditions_lower.contains("project=")
+                || conditions_lower.contains("project in")
             {
                 jql.to_string()
             } else {
@@ -540,7 +590,16 @@ mod tests {
                     .map(|p| format!("\"{}\"", p))
                     .collect::<Vec<_>>()
                     .join(",");
-                format!("project IN ({}) AND ({})", projects, jql)
+                let base = if conditions.trim().is_empty() {
+                    format!("project IN ({})", projects)
+                } else {
+                    format!("project IN ({}) AND ({})", projects, conditions.trim())
+                };
+                if let Some(ref order_clause) = order_by {
+                    format!("{}{}", base, order_clause)
+                } else {
+                    base
+                }
             }
         } else {
             jql.to_string()
@@ -548,6 +607,110 @@ mod tests {
 
         // Should remain unchanged because JQL already has "project ="
         assert_eq!(final_jql, "project = MYPROJ AND status = Open");
+    }
+
+    #[test]
+    fn test_search_handler_project_filter_with_order_by() {
+        // Test that ORDER BY is correctly placed outside parentheses
+        let config = create_test_config(vec!["PROJ1".to_string(), "PROJ2".to_string()], None);
+        let jql = "status = Open ORDER BY created DESC";
+
+        // Simulate the project filter logic with ORDER BY handling
+        let jql_lower = jql.to_lowercase();
+        let (conditions, order_by) = if let Some(pos) = jql_lower.find(" order by ") {
+            (jql[..pos].to_string(), Some(jql[pos..].to_string()))
+        } else if jql_lower.starts_with("order by ") {
+            (String::new(), Some(format!(" {}", jql)))
+        } else {
+            (jql.to_string(), None)
+        };
+
+        let final_jql = if !config.jira_projects_filter.is_empty() {
+            let conditions_lower = conditions.to_lowercase();
+            if conditions_lower.contains("project ")
+                || conditions_lower.contains("project=")
+                || conditions_lower.contains("project in")
+            {
+                jql.to_string()
+            } else {
+                let projects = config
+                    .jira_projects_filter
+                    .iter()
+                    .map(|p| format!("\"{}\"", p))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let base = if conditions.trim().is_empty() {
+                    format!("project IN ({})", projects)
+                } else {
+                    format!("project IN ({}) AND ({})", projects, conditions.trim())
+                };
+                if let Some(ref order_clause) = order_by {
+                    format!("{}{}", base, order_clause)
+                } else {
+                    base
+                }
+            }
+        } else {
+            jql.to_string()
+        };
+
+        // ORDER BY should be outside parentheses at the end
+        assert_eq!(
+            final_jql,
+            "project IN (\"PROJ1\",\"PROJ2\") AND (status = Open) ORDER BY created DESC"
+        );
+    }
+
+    #[test]
+    fn test_search_handler_project_filter_with_empty_conditions() {
+        // Test that empty conditions (only ORDER BY) work correctly
+        let config = create_test_config(vec!["PROJ1".to_string(), "PROJ2".to_string()], None);
+        let jql = "ORDER BY created DESC";
+
+        // Simulate the project filter logic with ORDER BY handling
+        let jql_lower = jql.to_lowercase();
+        let (conditions, order_by) = if let Some(pos) = jql_lower.find(" order by ") {
+            (jql[..pos].to_string(), Some(jql[pos..].to_string()))
+        } else if jql_lower.starts_with("order by ") {
+            (String::new(), Some(format!(" {}", jql)))
+        } else {
+            (jql.to_string(), None)
+        };
+
+        let final_jql = if !config.jira_projects_filter.is_empty() {
+            let conditions_lower = conditions.to_lowercase();
+            if conditions_lower.contains("project ")
+                || conditions_lower.contains("project=")
+                || conditions_lower.contains("project in")
+            {
+                jql.to_string()
+            } else {
+                let projects = config
+                    .jira_projects_filter
+                    .iter()
+                    .map(|p| format!("\"{}\"", p))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let base = if conditions.trim().is_empty() {
+                    format!("project IN ({})", projects)
+                } else {
+                    format!("project IN ({}) AND ({})", projects, conditions.trim())
+                };
+                if let Some(ref order_clause) = order_by {
+                    format!("{}{}", base, order_clause)
+                } else {
+                    base
+                }
+            }
+        } else {
+            jql.to_string()
+        };
+
+        // Should inject project filter without empty parentheses
+        assert_eq!(
+            final_jql,
+            "project IN (\"PROJ1\",\"PROJ2\") ORDER BY created DESC"
+        );
     }
 
     #[test]

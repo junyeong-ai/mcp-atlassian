@@ -29,6 +29,7 @@ use std::sync::{Arc, Mutex};
 /// - `colorName`: UI color code (Jira)
 /// - `hasScreen`, `isAvailable`, `isConditional`, `isGlobal`, `isInitial`, `isLooped`: Workflow metadata (Jira)
 /// - `friendlyLastModified`: Duplicate of lastModified (Confluence)
+/// - `editui`, `edituiv2`: Edit page URLs not needed for read-only operations (Confluence)
 pub const DEFAULT_EXCLUDE_FIELDS: &[&str] = &[
     // Original fields (5)
     "avatarUrls",     // Jira: User avatars (16x16, 24x24, 32x32, 48x48)
@@ -36,7 +37,7 @@ pub const DEFAULT_EXCLUDE_FIELDS: &[&str] = &[
     "profilePicture", // Confluence: User profile images
     "icon",           // Confluence: Space/content icons
     "self",           // Common: Self-referencing API URLs
-    // Zero Risk additions (19)
+    // Zero Risk additions (22)
     "expand",               // API expansion metadata
     "avatarId",             // UI avatar ID
     "accountType",          // 99% "atlassian" fixed value
@@ -57,6 +58,8 @@ pub const DEFAULT_EXCLUDE_FIELDS: &[&str] = &[
     "isInitial",            // Workflow internal setting
     "isLooped",             // Workflow internal setting
     "friendlyLastModified", // Duplicate of lastModified
+    "editui",               // Confluence edit draft URL (read-only unnecessary)
+    "edituiv2",             // Confluence edit v2 URL (read-only unnecessary)
 ];
 
 /// Statistics for a single optimization operation (test-only)
@@ -250,20 +253,22 @@ mod tests {
 
     #[test]
     fn test_default_exclude_fields_count() {
-        assert_eq!(DEFAULT_EXCLUDE_FIELDS.len(), 25);
+        assert_eq!(DEFAULT_EXCLUDE_FIELDS.len(), 27);
         // Original 5 fields
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"avatarUrls"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"iconUrl"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"profilePicture"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"icon"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"self"));
-        // Zero Risk additions (20 fields)
+        // Zero Risk additions (22 fields)
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"expand"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"avatarId"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"accountType"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"projectTypeKey"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"simplified"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"friendlyLastModified"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"editui"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"edituiv2"));
     }
 
     #[test]

@@ -200,8 +200,8 @@ ATLASSIAN_API_TOKEN=your_api_token_here
 JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
 JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
 
-# Optional - Response Optimization (token savings)
-RESPONSE_EXCLUDE_FIELDS=avatarUrls,iconUrl,self
+# Optional - Response Optimization (default 25 fields auto-removed, specify additional only)
+# RESPONSE_EXCLUDE_FIELDS=customField1,customField2
 
 # Optional - Access Control
 JIRA_PROJECTS_FILTER=PROJ1,PROJ2
@@ -264,8 +264,18 @@ JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
 Removes specific fields from all responses (token optimization).
 
 ```env
-# Default: avatarUrls, iconUrl, profilePicture, icon, self
-RESPONSE_EXCLUDE_FIELDS=avatarUrls,iconUrl,self
+# Default (25 fields, 20-30% token reduction):
+# - UI metadata: avatarUrls, iconUrl, profilePicture, icon, avatarId,
+#                colorName, iconCssClass
+# - API metadata: expand, _expandable, self
+# - Fixed values: accountType, projectTypeKey, simplified, entityType
+# - Empty objects/arrays: childTypes, macroRenderedOutput, restrictions, breadcrumbs
+# - Workflow metadata: hasScreen, isAvailable, isConditional, isGlobal,
+#                      isInitial, isLooped
+# - Duplicates: friendlyLastModified
+
+# Specify only additional fields (default 25 are auto-applied)
+RESPONSE_EXCLUDE_FIELDS=customField1,customField2
 ```
 
 **Field Resolution Priority**:
@@ -377,8 +387,8 @@ JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
 # Method 3: Extend defaults
 JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015
 
-# Method 4: Remove unnecessary fields from response
-RESPONSE_EXCLUDE_FIELDS=avatarUrls,iconUrl,self
+# Method 4: Remove unnecessary fields from response (default 25 auto-applied, specify additional only)
+# RESPONSE_EXCLUDE_FIELDS=customField1,customField2
 ```
 
 ---
@@ -453,7 +463,7 @@ cargo check
 ### Testing
 
 ```bash
-# All tests (183 tests, 0.05s)
+# All tests (180 tests, 0.05s)
 cargo test
 
 # With output

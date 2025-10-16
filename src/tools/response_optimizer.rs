@@ -16,12 +16,47 @@ use std::sync::{Arc, Mutex};
 /// - `profilePicture`: User profile pictures (Confluence)
 /// - `icon`: Space/content icons (Confluence)
 /// - `self`: Self-referencing API URLs (both Jira and Confluence)
+/// - `expand`: API expansion metadata (Jira)
+/// - `avatarId`: UI avatar ID (Jira)
+/// - `accountType`: Always "atlassian" (Jira/Confluence)
+/// - `projectTypeKey`: Always "software" (Jira)
+/// - `simplified`: Workflow setting (Jira)
+/// - `_expandable`: API expansion metadata (Confluence)
+/// - `childTypes`, `macroRenderedOutput`, `restrictions`: Always empty (Confluence)
+/// - `breadcrumbs`: Always empty array (Confluence)
+/// - `entityType`: Always "content" (Confluence)
+/// - `iconCssClass`: UI CSS class (Confluence)
+/// - `colorName`: UI color code (Jira)
+/// - `hasScreen`, `isAvailable`, `isConditional`, `isGlobal`, `isInitial`, `isLooped`: Workflow metadata (Jira)
+/// - `friendlyLastModified`: Duplicate of lastModified (Confluence)
 pub const DEFAULT_EXCLUDE_FIELDS: &[&str] = &[
+    // Original fields (5)
     "avatarUrls",     // Jira: User avatars (16x16, 24x24, 32x32, 48x48)
     "iconUrl",        // Jira: Entity icons
     "profilePicture", // Confluence: User profile images
     "icon",           // Confluence: Space/content icons
     "self",           // Common: Self-referencing API URLs
+    // Zero Risk additions (19)
+    "expand",               // API expansion metadata
+    "avatarId",             // UI avatar ID
+    "accountType",          // 99% "atlassian" fixed value
+    "projectTypeKey",       // 99% "software" fixed value
+    "simplified",           // Internal workflow setting
+    "_expandable",          // Confluence API metadata
+    "childTypes",           // Always empty object
+    "macroRenderedOutput",  // Always empty object
+    "restrictions",         // Always empty object
+    "breadcrumbs",          // Always empty array
+    "entityType",           // Always "content" fixed value
+    "iconCssClass",         // UI CSS class
+    "colorName",            // UI color, name is sufficient
+    "hasScreen",            // UI behavior metadata
+    "isAvailable",          // Always true (filtered)
+    "isConditional",        // Workflow internal setting
+    "isGlobal",             // Workflow internal setting
+    "isInitial",            // Workflow internal setting
+    "isLooped",             // Workflow internal setting
+    "friendlyLastModified", // Duplicate of lastModified
 ];
 
 /// Statistics for a single optimization operation (test-only)
@@ -215,12 +250,20 @@ mod tests {
 
     #[test]
     fn test_default_exclude_fields_count() {
-        assert_eq!(DEFAULT_EXCLUDE_FIELDS.len(), 5);
+        assert_eq!(DEFAULT_EXCLUDE_FIELDS.len(), 25);
+        // Original 5 fields
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"avatarUrls"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"iconUrl"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"profilePicture"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"icon"));
         assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"self"));
+        // Zero Risk additions (20 fields)
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"expand"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"avatarId"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"accountType"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"projectTypeKey"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"simplified"));
+        assert!(DEFAULT_EXCLUDE_FIELDS.contains(&"friendlyLastModified"));
     }
 
     #[test]

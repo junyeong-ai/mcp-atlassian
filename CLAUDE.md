@@ -15,7 +15,7 @@ Production-ready Model Context Protocol server implementing 14 tools for Jira an
 | **Language** | Rust 2024 Edition |
 | **Binary** | 4.4MB (release, stripped) |
 | **Tools** | 14 (8 Jira + 6 Confluence) |
-| **Tests** | 183 passing (100% critical paths) |
+| **Tests** | 180 passing (100% critical paths) |
 | **Build** | 28s release, LTO enabled |
 | **Warnings** | Zero (strict policy) |
 
@@ -346,8 +346,12 @@ JIRA_SEARCH_DEFAULT_FIELDS="key,summary,status,assignee"
 # Extend defaults with custom fields
 JIRA_SEARCH_CUSTOM_FIELDS="customfield_10015,customfield_10016"
 
-# Exclude fields from all responses (token optimization)
-RESPONSE_EXCLUDE_FIELDS="avatarUrls,iconUrl,self"
+# Exclude fields from all responses (token optimization, 25 default fields)
+# Default: avatarUrls, iconUrl, profilePicture, icon, self, expand, avatarId, accountType,
+#          projectTypeKey, simplified, _expandable, childTypes, macroRenderedOutput,
+#          restrictions, breadcrumbs, entityType, iconCssClass, colorName, hasScreen,
+#          isAvailable, isConditional, isGlobal, isInitial, isLooped, friendlyLastModified
+RESPONSE_EXCLUDE_FIELDS="customField1,customField2"
 ```
 
 ### Optional - Access Control
@@ -388,7 +392,7 @@ cargo check
 ### Testing
 
 ```bash
-# Run all tests (183 passing)
+# Run all tests (180 passing)
 cargo test
 
 # Run specific module
@@ -456,7 +460,13 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"jira_creat
 
 5. **Field Filtering**
    - Jira search: 17 fields vs 50+ fields
-   - Response optimizer: Remove avatars, icons, self-links
+   - Response optimizer: Remove 25 unnecessary fields (20-30% token reduction)
+     - UI metadata: avatarUrls, iconUrl, avatarId, colorName, iconCssClass
+     - API metadata: expand, _expandable, self
+     - Fixed values: accountType, projectTypeKey, simplified, entityType
+     - Empty objects: childTypes, macroRenderedOutput, restrictions, breadcrumbs
+     - Workflow metadata: hasScreen, isAvailable, isConditional, isGlobal, isInitial, isLooped
+     - Duplicates: friendlyLastModified
    - Technique: Query params + recursive filtering
 
 ### Metrics
@@ -465,7 +475,7 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"jira_creat
 |--------|-------|-------|
 | Binary Size | 4.4MB | LTO + strip enabled |
 | Build Time | 28s | Release profile |
-| Test Time | 0.05s | 183 tests |
+| Test Time | 0.05s | 180 tests |
 | Warnings | 0 | Strict policy |
 | ADF Validation | <1ms | Top-level only |
 

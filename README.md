@@ -201,8 +201,8 @@ ATLASSIAN_API_TOKEN=your_api_token_here
 JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
 JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
 
-# 선택 - 응답 최적화 (토큰 절약)
-RESPONSE_EXCLUDE_FIELDS=avatarUrls,iconUrl,self
+# 선택 - 응답 최적화 (기본 25개 필드 자동 제거, 추가 필드만 지정)
+# RESPONSE_EXCLUDE_FIELDS=customField1,customField2
 
 # 선택 - 접근 제어
 JIRA_PROJECTS_FILTER=PROJ1,PROJ2
@@ -265,8 +265,18 @@ JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015,customfield_10016
 모든 응답에서 특정 필드를 제거합니다 (토큰 최적화).
 
 ```env
-# 기본값: avatarUrls, iconUrl, profilePicture, icon, self
-RESPONSE_EXCLUDE_FIELDS=avatarUrls,iconUrl,self
+# 기본값 (25개 필드, 20-30% 토큰 절감):
+# - UI 메타데이터: avatarUrls, iconUrl, profilePicture, icon, avatarId,
+#                  colorName, iconCssClass
+# - API 메타데이터: expand, _expandable, self
+# - 고정값: accountType, projectTypeKey, simplified, entityType
+# - 빈 객체/배열: childTypes, macroRenderedOutput, restrictions, breadcrumbs
+# - 워크플로우 메타데이터: hasScreen, isAvailable, isConditional, isGlobal,
+#                        isInitial, isLooped
+# - 중복 데이터: friendlyLastModified
+
+# 추가 필드만 지정 (기본 25개는 자동 적용)
+RESPONSE_EXCLUDE_FIELDS=customField1,customField2
 ```
 
 **필드 결정 우선순위**:
@@ -378,8 +388,8 @@ JIRA_SEARCH_DEFAULT_FIELDS=key,summary,status,assignee
 # 방법 3: 기본값에 추가
 JIRA_SEARCH_CUSTOM_FIELDS=customfield_10015
 
-# 방법 4: 응답에서 불필요 필드 제거
-RESPONSE_EXCLUDE_FIELDS=avatarUrls,iconUrl,self
+# 방법 4: 응답에서 불필요 필드 제거 (기본 25개 자동 적용, 추가만 지정)
+# RESPONSE_EXCLUDE_FIELDS=customField1,customField2
 ```
 
 ---
@@ -454,7 +464,7 @@ cargo check
 ### 테스트
 
 ```bash
-# 전체 테스트 (183개, 0.05초)
+# 전체 테스트 (180개, 0.05초)
 cargo test
 
 # 출력 포함
